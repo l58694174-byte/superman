@@ -153,12 +153,10 @@ def ui_start_screen(user, context: ContextTypes.DEFAULT_TYPE) -> str:
     return f"<b><a href='{CHANNEL_LINK}'>[❆]</a> Welcome to Superman Bot 💎</b>\n────────────\n<b>User</b>    ➳ {uname}\n<b>User ID</b> ➳ <code>{user.id}</code>\n<b>Access</b>  ➳ {access}\n<b>Credits</b> ➳ {credits}\n<b>Joined</b>  ➳ {joined}\n────────────\nChoose an option below.\n────────────\n{E_DEV} <b>Dev</b>     ➳ <a href='{DEV_LINK}'>Superman</a> {E_PRO}\n<b>Version</b> ➳ {VERSION}"
 
 async def check_force_sub(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> list:
-    if user_id == OWNER_ID: return []
     return []
 
 async def require_membership(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    not_joined = await check_force_sub(update.effective_user.id, context)
-    return not not_joined
+    return True
 
 async def require_not_banned(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     user_id = update.effective_user.id
@@ -738,43 +736,72 @@ async def _cmd_sh_gated(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 _broadcast_lock = asyncio.Lock()
 async def _broadcast_worker(bot, status_msg, user_ids: list, src_chat_id: int = None, src_msg_id: int = None, text: str = None):
-    total = len(user_ids); sent = blocked = failed = done = 0; sem = asyncio.Semaphore(200); counter_lock = asyncio.Lock()
+    total = len(user_ids)
+    sent = blocked = failed = done = 0
+    sem = asyncio.Semaphore(200)
+    counter_lock = asyncio.Lock()
+    
     async def _send_one(uid: int):
         nonlocal sent, blocked, failed, done
         async with sem:
             try:
-                if src_chat_id and src_msg_id: await bot.copy_message(chat_id=uid, from_chat_id=src_chat_id, message_id=src_msg_id)
-                else: await bot.send_message(chat_id=uid, text=text, parse_mode="HTML", disable_web_page_preview=True)
-                async with counter_lock: sent += 1
-            except Forbidden: async with counter_lock: blocked += 1
-            except: async with counter_lock: failed += 1
-            finally: async with counter_lock: done += 1
+                if src_chat_id and src_msg_id:
+                    await bot.copy_message(chat_id=uid, from_chat_id=src_chat_id, message_id=src_msg_id)
+                else:
+                    await bot.send_message(chat_id=uid, text=text, parse_mode="HTML", disable_web_page_preview=True)
+                async with counter_lock:
+                    sent += 1
+            except Forbidden:
+                async with counter_lock:
+                    blocked += 1
+            except Exception:
+                async with counter_lock:
+                    failed += 1
+            finally:
+                async with counter_lock:
+                    done += 1
+
     tasks = [asyncio.create_task(_send_one(uid)) for uid in user_ids]
     await asyncio.gather(*tasks, return_exceptions=True)
-    async with counter_lock: fs, fb, ff = sent, blocked, failed
+    
+    async with counter_lock:
+        fs, fb, ff = sent, blocked, failed
+        
     try:
         header = "✅ <b>Broadcast Complete</b>"
         bar = "█" * 20 + "░" * 0
         await status_msg.edit_text(f"{header}\n━━━━━━━━━━━━━━━━\n👥 <b>Total</b>   ➛ <b>{total}</b>\n📨 <b>Sent</b>    ➛ <b>{fs}</b>\n🚫 <b>Blocked</b> ➛ <b>{fb}</b>\n❌ <b>Failed</b>  ➛ <b>{ff}</b>\n━━━━━━━━━━━━━━━━\n<code>[{bar}]</code> {total}/{total}  (100%)", parse_mode="HTML")
     except: pass
-    if _broadcast_lock.locked(): _broadcast_lock.release()
+    if _broadcast_lock.locked():
+        _broadcast_lock.release()
 
 async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     has_reply = bool(update.message.reply_to_message); has_args = bool(context.args)
-    if not has_reply and not has_args: await update.message.reply_text("↩️ <b>Usage:</b>\n• Reply to any message with <b>/broadcast</b> — copies it to all users\n• <b>/broadcast</b> &lt;text&gt; — sends a text message to all users\n\n<i>No 'Forwarded from' header. Runs in background.</i>", parse_mode="HTML"); return
-    if _broadcast_lock.locked(): await update.message.reply_text("⚠️ A broadcast is already in progress.\nUse /bstatus to check, or wait for it to finish."); return
+    if not has_reply and not has_args:
+        await update.message.reply_text("↩️ <b>Usage:</b>\n• Reply to any message with <b>/broadcast</b> — copies it to all users\n• <b>/broadcast</b> &lt;text&gt; — sends a text message to all users\n\n<i>No 'Forwarded from' header. Runs in background.</i>", parse_mode="HTML")
+        return
+    if _broadcast_lock.locked():
+        await update.message.reply_text("⚠️ A broadcast is already in progress.\nUse /bstatus to check, or wait for it to finish.")
+        return
     await _broadcast_lock.acquire()
     try:
-        all_users = list(context.bot_data.get("user_data", {}).keys()); user_ids = []
+        all_users = list(context.bot_data.get("user_data", {}).keys())
+        user_ids = []
         for uid_str in all_users:
             try: user_ids.append(int(uid_str))
             except: pass
         total = len(user_ids)
-        if total == 0: await update.message.reply_text("⚠️ No users found in user_data."); _broadcast_lock.release(); return
+        if total == 0:
+            await update.message.reply_text("⚠️ No users found in user_data.")
+            if _broadcast_lock.locked(): _broadcast_lock.release()
+            return
         src_chat_id = src_msg_id = None; text = None
-        if has_reply: src_chat_id = update.message.reply_to_message.chat_id; src_msg_id = update.message.reply_to_message.message_id
-        else: text = " ".join(context.args)
+        if has_reply:
+            src_chat_id = update.message.reply_to_message.chat_id
+            src_msg_id = update.message.reply_to_message.message_id
+        else:
+            text = " ".join(context.args)
         status_msg = await update.message.reply_text(f"📡 <b>Broadcasting…</b>\n━━━━━━━━━━━━━━━━\n👥 <b>Total</b>   ➛ <b>{total}</b>\n📨 <b>Sent</b>    ➛ <b>0</b>\n🚫 <b>Blocked</b> ➛ <b>0</b>\n❌ <b>Failed</b>  ➛ <b>0</b>\n━━━━━━━━━━━━━━━━\n<code>[{'░' * 20}]</code> 0/{total}  (0%)", parse_mode="HTML")
         await update.message.reply_text(f"🚀 <b>Broadcast started!</b>\nSending to <b>{total}</b> users in background…", parse_mode="HTML")
         asyncio.create_task(_broadcast_worker(context.bot, status_msg, user_ids, src_chat_id=src_chat_id, src_msg_id=src_msg_id, text=text))
@@ -880,7 +907,6 @@ def main():
         _get_updates_request = HTTPXRequest(connection_pool_size=8, connect_timeout=15.0, read_timeout=65.0, write_timeout=60.0, pool_timeout=120.0)
         app = Application.builder().token(BOT_TOKEN).request(_request).get_updates_request(_get_updates_request).concurrent_updates(1024).post_init(_post_init).post_shutdown(_post_shutdown).build()
         
-        # User Commands
         app.add_handler(CommandHandler("start", cmd_start))
         app.add_handler(CommandHandler("ping", cmd_ping))
         app.add_handler(CommandHandler("status", cmd_status))
@@ -892,7 +918,6 @@ def main():
         app.add_handler(CommandHandler("msh", cmd_msh))
         app.add_handler(get_me_handler())
         
-        # Owner Commands
         app.add_handler(CommandHandler("cards", cmd_cards))
         app.add_handler(CommandHandler("1day", cmd_1day))
         app.add_handler(CommandHandler("gen", cmd_gen))
