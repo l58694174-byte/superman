@@ -490,28 +490,29 @@ def _bin_str_plain(bd: dict) -> str:
 
 def build_result_msg(card, resp, verdict, bin_data, price, currency, elapsed, user, plan):
     ulink = _user_link(user); ts = _fmt_time(elapsed); bin_s = escape(_bin_str_plain(bin_data))
-    raw_resp = resp or "Unknown"; display_resp_clean = raw_resp
-    ch_link = f'<a href="{CHANNEL_LINK}">[❆]</a>'; live_eid = get_random_live_emoji()
+    raw_resp = resp or "Unknown"; safe_resp = escape(raw_resp)
+    ch_link = f'<a href="{CHANNEL_LINK}">Superman</a>'
     if verdict == "CHARGED":
-        status_line = f'<b>{ch_link} HIT CHARGED <tg-emoji emoji-id="{PROG_CHARGED_EMOJI_ID}">💎</tg-emoji></b>'
-        gate_line = f"Gate ➛ Shopify • {_fmt_price(price, currency)}"; resp_te = f'<tg-emoji emoji-id="{PROG_CHARGED_EMOJI_ID}">💎</tg-emoji>'
+        status_line = "✦ <b>𝗛𝗜𝗧 𝗖𝗛𝗔𝗥𝗚𝗘𝗗</b> ✦"; gate_line = f"Shopify • {_fmt_price(price, currency)}"
     elif verdict == "TDS":
-        status_line = f'<b>{ch_link} HIT LIVE [3DS] <tg-emoji emoji-id="{live_eid}">✅</tg-emoji></b>'; gate_line = "Gate ➛ Shopify"; resp_te = f'<tg-emoji emoji-id="{PROG_LIVE_EMOJI_ID}">✅</tg-emoji>'
+        status_line = "✦ <b>𝗛𝗜𝗧 𝗟𝗜𝗩𝗘 [3𝗗𝗦]</b> ✦"; gate_line = "Shopify"
     elif verdict == "LIVE":
-        status_line = f'<b>{ch_link} HIT LIVE <tg-emoji emoji-id="{live_eid}">✅</tg-emoji></b>'; gate_line = "Gate ➛ Shopify"; resp_te = f'<tg-emoji emoji-id="{PROG_LIVE_EMOJI_ID}">✅</tg-emoji>'
+        status_line = "✦ <b>𝗛𝗜𝗧 𝗟𝗜𝗩𝗘</b> ✦"; gate_line = "Shopify"
     else:
-        status_line = f'<b>{ch_link} DEAD DECLINED <tg-emoji emoji-id="{PROG_DEAD_EMOJI_ID}">❌</tg-emoji></b>'; gate_line = "Gate ➛ Shopify"; resp_te = f'<tg-emoji emoji-id="{PROG_DEAD_EMOJI_ID}">❌</tg-emoji>'
-    safe_resp = escape(display_resp_clean)
-    return f'{status_line}\n\n<b><tg-emoji emoji-id="{CARD_EMOJI_ID}">💳</tg-emoji></b>\n<b>   ⤷ <code>{escape(card)}</code></b>\n<b>{gate_line}</b>\n<b>──────────</b>\n<b>{resp_te} Resp ➛ {safe_resp}</b>\n<b>Bin ➛ <code>{bin_s}</code></b>\n<b>──────────</b>\n<b><tg-emoji emoji-id="{TIME_EMOJI_ID}">⏱</tg-emoji> ➛ {ts}</b>\n<b><tg-emoji emoji-id="{USER_EMOJI_ID}">👤</tg-emoji> ➛ {ulink} <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>\n<b><tg-emoji emoji-id="{DEV_EMOJI_ID}">⚡</tg-emoji> ➛ {DEV_LINK_HTML} <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>'
+        status_line = "✦ <b>𝗗𝗘𝗔𝗗 𝗗𝗘𝗖𝗟𝗜𝗡𝗘𝗗</b> ✦"; gate_line = "Shopify"
+    return f"{status_line}\n━━━━━━━━━━━━━━━━━━━━\n💳 <b>𝗖𝗮𝗿𝗱</b>: <code>{escape(card)}</code>\n🛒 <b>𝗚𝗮𝘁𝗲</b>: {gate_line}\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲</b>: {safe_resp}\n🏦 <b>𝗕𝗜𝗡</b>: {bin_s}\n━━━━━━━━━━━━━━━━━━━━\n⏱ <b>𝗧𝗶𝗺𝗲</b>: {ts}\n👤 <b>𝗨𝘀𝗲𝗿</b>: {ulink}\n⚡ <b>𝗕𝗼𝘁</b>: {ch_link}"
 
 def _progress_text(sess: dict) -> str:
-    ts = _fmt_time(time.time() - sess["start_time"]); uobj = sess.get("user_obj"); ulink = _user_link(uobj) if uobj else "User"
-    return f'<b><tg-emoji emoji-id="{PROG_GATE_EMOJI_ID}">🛒</tg-emoji> Gate ➛ Shopify</b>\n<b><tg-emoji emoji-id="{PROG_PROGRESS_EMOJI_ID}">🔄</tg-emoji> Progress ➛ {sess["checked"]}/{sess["total"]}</b>\n<b>Charged ➛ {sess["charged"]} <tg-emoji emoji-id="{PROG_CHARGED_EMOJI_ID}">💎</tg-emoji></b>\n<b>Live ➛ {sess["approved"]} <tg-emoji emoji-id="{PROG_LIVE_EMOJI_ID}">✅</tg-emoji></b>\n<b>Dead ➛ {sess["dead"]} <tg-emoji emoji-id="{PROG_DEAD_EMOJI_ID}">❌</tg-emoji></b>\n<b>Errors ➛ {sess["errors"]} <tg-emoji emoji-id="{PROG_ERRORS_EMOJI_ID}">⚠️</tg-emoji></b>\n<b>Time ➛ {ts}</b>\n<b><tg-emoji emoji-id="{USER_EMOJI_ID}">👤</tg-emoji> ➛ {ulink} <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>\n<b><tg-emoji emoji-id="{DEV_EMOJI_ID}">⚡</tg-emoji> ➛ {DEV_LINK_HTML} <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>'
+    ts = _fmt_time(time.time() - sess["start_time"])
+    uobj = sess.get("user_obj")
+    ulink = _user_link(uobj) if uobj else "User"
+    ch_link = f'<a href="{CHANNEL_LINK}">Superman</a>'
+    return f"✦ <b>𝗦𝗛𝗢𝗣𝗜𝗙𝗬 𝗠𝗔𝗦𝗦 𝗖𝗛𝗘𝗖𝗞𝗘𝗥</b> ✦\n━━━━━━━━━━━━━━━━━━━━\n🛒 <b>𝗚𝗮𝘁𝗲</b>:  Shopify\n🔄 <b>𝗣𝗿𝗼𝗴𝗿𝗲𝘀𝘀</b>: {sess['checked']} / {sess['total']}\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>𝗟𝗶𝘃𝗲</b>:  {sess['approved']}\n❌ <b>𝗗𝗲𝗮𝗱</b>:  {sess['dead']}\n💎 <b>𝗖𝗵𝗮𝗿𝗴𝗲𝗱</b>: {sess['charged']}\n⚠️ <b>𝗘𝗿𝗿𝗼𝗿𝘀</b>: {sess['errors']}\n⏱ <b>𝗘𝗹𝗮𝗽𝘀𝗲𝗱</b>: {ts}\n━━━━━━━━━━━━━━━━━━━━\n👤 <b>𝗨𝘀𝗲𝗿</b>: {ulink}\n⚡ <b>𝗕𝗼𝘁</b>: {ch_link}"
 
 def _msh_buttons(sid: str, running: bool) -> RawMarkup:
     sess = MSH_SESSIONS.get(sid, {}); charged_n = sess.get("charged", 0); live_n = sess.get("approved", 0); all_n = sess.get("checked", 0)
-    rows = [[_btn(f"Charged ({charged_n})", cb=f"{_CB_RESULT}:{sid}:charged", style="danger", icon=BTN_CHARGED_EMOJI_ID), _btn(f"Live ({live_n})", cb=f"{_CB_RESULT}:{sid}:live", style="success", icon=BTN_LIVE_EMOJI_ID), _btn(f"All ({all_n})", cb=f"{_CB_RESULT}:{sid}:all", style="primary", icon=BTN_ALL_EMOJI_ID)]]
-    if running: rows.append([_btn("Stop", cb=f"{_CB_STOP}:{sid}", style="danger", icon=BTN_STOP_EMOJI_ID)])
+    rows = [[_btn(f"Charged ({charged_n})", cb=f"{_CB_RESULT}:{sid}:charged", style="danger"), _btn(f"Live ({live_n})", cb=f"{_CB_RESULT}:{sid}:live", style="success"), _btn(f"All ({all_n})", cb=f"{_CB_RESULT}:{sid}:all", style="primary")]]
+    if running: rows.append([_btn("Stop", cb=f"{_CB_STOP}:{sid}", style="danger")])
     return RawMarkup(rows)
 
 async def _update_progress(bot, sid: str, force: bool = False):
@@ -548,7 +549,7 @@ async def _send_hit(bot, user, text: str, verdict: str, card: str = "", bin_data
     eid = get_random_charged_emoji(); ulink = _user_link(user); resp_disp = escape(resp) if resp else "ORDER_PAID"
     gate_txt = f"Gate ➛ Shopify • {_fmt_price(price, currency)}"
     log_html = f'<b>HIT ➛ CHARGED <tg-emoji emoji-id="{eid}">💎</tg-emoji></b>\n<b>{gate_txt}</b>\n<b><tg-emoji emoji-id="{HIT_RESP_EMOJI_ID}">✅</tg-emoji> <code>{resp_disp}</code></b>\n<b>User ➛ {ulink} <tg-emoji emoji-id="{_plan_eid(plan)}">⭐</tg-emoji></b>'
-    log_kb = RawMarkup([[_btn("𝘽𝘼𝙏 ✘ 𝘾𝙃𝙆", url=BOT_USERNAME_LINK, style="primary", icon=CARD_CHK_BTN_EMOJI_ID)]])
+    log_kb = RawMarkup([[_btn("𝘽𝘼𝙏 ✘ 𝘾𝙃𝙆", url=BOT_USERNAME_LINK, style="primary")]])
     if not skip_dm:
         try: await _send_as_media(bot, user.id, eid, caption=text, parse_mode="HTML")
         except: pass
@@ -653,7 +654,7 @@ async def cmd_sh(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if rem > 0: await update.message.reply_text(f"⏳ <b>Cooldown:</b> wait <b>{int(rem)}s</b>", parse_mode="HTML"); return
         cd_map[user.id] = time.time(); ud["credits"] = max(0, ud.get("credits", 1) - 1)
     plan = ud.get("plan", "TRIAL")
-    spin = await update.message.reply_text(f'<b><tg-emoji emoji-id="{SH_GATE_EMOJI_ID}">❤️</tg-emoji>gate ➳Shopify</b>\n<b><tg-emoji emoji-id="{SH_PROG_EMOJI_ID}">😄</tg-emoji>Progress ➳ 0/1</b>\n<b>Live ➳ 0 <tg-emoji emoji-id="{SH_LIVE_EMOJI_ID}">🎸</tg-emoji>✅</b>', parse_mode="HTML")
+    spin = await update.message.reply_text('<b>🔄 Checking Card...</b>', parse_mode="HTML")
     proxies = _load_proxies()
     if not proxies: await spin.edit_text("❌ <b>No proxies in px.txt</b>", parse_mode="HTML"); return
     try: sites = get_working_sites()
