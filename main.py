@@ -50,14 +50,6 @@ def _load_premium_file(bot_data: dict) -> None:
         if pdata.get("name"): ud.setdefault("name", pdata["name"])
         if pdata.get("username"): ud.setdefault("username", pdata["username"])
 
-FORCE_JOIN_LIST = []
-_config_fc = [(u, l) for u, l in FORCE_CHANNELS]
-for _fc_entry in FORCE_JOIN_LIST:
-    _uname = _fc_entry[0]
-    if not any(_uname == u for u, _ in _config_fc): _config_fc.append((_uname, _fc_entry[1]))
-FORCE_JOIN_FULL = []
-for _uname, _link in _config_fc: FORCE_JOIN_FULL.append((_uname, _link, f"📢 @{_uname}"))
-
 _lock_file_handle = None
 def acquire_instance_lock() -> bool:
     global _lock_file_handle
@@ -567,6 +559,27 @@ async def cmd_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action_kb = RawMarkup([[_btn(f"{E_ERRORS} Ban" if not banned else f"{E_LIVE} Unban", cb=f"owner_ban_{target_id}" if not banned else f"owner_unban_{target_id}", style="danger" if not banned else "primary"), _btn(f"{E_DECLINED} Remove Premium", cb=f"owner_resub_{target_id}", style="danger")], [_btn("🔙 Back", cb="owner_info_back")]])
     await update.message.reply_text(txt, parse_mode="HTML", reply_markup=action_kb)
 
+async def cmd_allcm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    await update.message.reply_text("<b>🦇 ALL COMMANDS</b>\n━━━━━━━━━━━━━━━━━\n\n<b>⚡ OWNER ONLY:</b>\n/allcm ➳ Show all commands\n/allsub ➳ All live premium users\n/info [user] ➳ Full user info\n/find @user|ID ➳ Search any user + full profile\n/gen code &lt;val&gt; [count] ➳ Gen credit code(s)\n/gen key &lt;plan&gt; &lt;days&gt; [count] ➳ Gen premium key(s)\n/1day [count] ➳ Gen 1-day CORE key(s)\n/add @user PLAN DAYS ➳ Grant premium\n/sub @user|ID ➳ View user sub + grant plan buttons\n/resub @user|ID ➳ Remove active premium\n/rsub @user|ID ➳ Same as /resub\n/rem &lt;user&gt; ➳ Remove premium (legacy)\n/ban &lt;user&gt; ➳ Ban user\n/unban &lt;user&gt; ➳ Unban user\n/broadcast &lt;msg&gt; ➳ Broadcast\n/maintenance on|off ➳ Maintenance mode\n/onsh /offsh ➳ Toggle Shopify gate\n/onmsh /offmsh ➳ Toggle Shopify Mass gate\n━━━━━━━━━━━━━━━━━\n\n<b>⭐ PREMIUM USER COMMANDS:</b>\n/sh ➳ Shopify Single Checker\n/msh ➳ Shopify Mass 0-20$ (trial: 1cr=1card, limit 5000)\n━━━━━━━━━━━━━━━━━\n\n<b>✅ TRIAL / FREE USER COMMANDS:</b>\n/start ➳ Dashboard\n/plan ➳ Premium plans\n/sub ➳ My subscription\n/bin ➳ BIN lookup\n/rm ➳ Redeem code or key\n/ping ➳ Bot speed test\n━━━━━━━━━━━━━━━━━", parse_mode="HTML")
+
+async def cmd_allsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    now = time.time(); all_u = context.bot_data.get("user_data", {}); premium = [(uid_s, ud) for uid_s, ud in all_u.items() if ud.get("plan", "TRIAL").upper() != "TRIAL" and ud.get("expires", 0) > now]
+    if not premium: await update.message.reply_text(f"<b>{E_USER} No active premium users.</b>", parse_mode="HTML"); return
+    premium.sort(key=lambda x: x[1].get("expires", 0)); lines = [f"<b>{E_PRO} {B('Live Premium Users')} ➳ {len(premium)}</b>\n────────——"]
+    for idx, (uid_s, ud) in enumerate(premium, 1):
+        uname_d = f"@{ud.get('username','')}" if ud.get("username") else ud.get("name", "?"); plan = ud.get("plan", "TRIAL").upper(); expires = ud.get("expires", 0); rem_d = int((expires - now) // 86400); rem_h = int(((expires - now) % 86400) // 3600)
+        lines.append(f"<b>{idx}.</b> <code>{uid_s}</code> | {uname_d}\n    ➳ {get_styled_plan(plan)} | <b>{rem_d}d {rem_h}h left</b>")
+    txt = "\n".join(lines)
+    if len(txt) > 4000:
+        chunk = ""
+        for line in lines:
+            if len(chunk) + len(line) + 1 > 4000: await update.message.reply_text(chunk, parse_mode="HTML"); chunk = line + "\n"
+            else: chunk += line + "\n"
+        if chunk: await update.message.reply_text(chunk, parse_mode="HTML")
+    else: await update.message.reply_text(txt, parse_mode="HTML")
+
 async def cmd_maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     if not context.args: state = context.bot_data.get("maintenance", False); await update.message.reply_text(f"Maintenance is currently: <b>{'ON' if state else 'OFF'}</b>\nUse: /maintenance on|off", parse_mode="HTML"); return
@@ -723,6 +736,57 @@ async def _cmd_sh_gated(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_membership(update, context): return
     await cmd_sh(update, context)
 
+_broadcast_lock = asyncio.Lock()
+async def _broadcast_worker(bot, status_msg, user_ids: list, src_chat_id: int = None, src_msg_id: int = None, text: str = None):
+    total = len(user_ids); sent = blocked = failed = done = 0; sem = asyncio.Semaphore(200); counter_lock = asyncio.Lock()
+    async def _send_one(uid: int):
+        nonlocal sent, blocked, failed, done
+        async with sem:
+            try:
+                if src_chat_id and src_msg_id: await bot.copy_message(chat_id=uid, from_chat_id=src_chat_id, message_id=src_msg_id)
+                else: await bot.send_message(chat_id=uid, text=text, parse_mode="HTML", disable_web_page_preview=True)
+                async with counter_lock: sent += 1
+            except Forbidden: async with counter_lock: blocked += 1
+            except: async with counter_lock: failed += 1
+            finally: async with counter_lock: done += 1
+    tasks = [asyncio.create_task(_send_one(uid)) for uid in user_ids]
+    await asyncio.gather(*tasks, return_exceptions=True)
+    async with counter_lock: fs, fb, ff = sent, blocked, failed
+    try:
+        header = "✅ <b>Broadcast Complete</b>"
+        bar = "█" * 20 + "░" * 0
+        await status_msg.edit_text(f"{header}\n━━━━━━━━━━━━━━━━\n👥 <b>Total</b>   ➛ <b>{total}</b>\n📨 <b>Sent</b>    ➛ <b>{fs}</b>\n🚫 <b>Blocked</b> ➛ <b>{fb}</b>\n❌ <b>Failed</b>  ➛ <b>{ff}</b>\n━━━━━━━━━━━━━━━━\n<code>[{bar}]</code> {total}/{total}  (100%)", parse_mode="HTML")
+    except: pass
+    if _broadcast_lock.locked(): _broadcast_lock.release()
+
+async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    has_reply = bool(update.message.reply_to_message); has_args = bool(context.args)
+    if not has_reply and not has_args: await update.message.reply_text("↩️ <b>Usage:</b>\n• Reply to any message with <b>/broadcast</b> — copies it to all users\n• <b>/broadcast</b> &lt;text&gt; — sends a text message to all users\n\n<i>No 'Forwarded from' header. Runs in background.</i>", parse_mode="HTML"); return
+    if _broadcast_lock.locked(): await update.message.reply_text("⚠️ A broadcast is already in progress.\nUse /bstatus to check, or wait for it to finish."); return
+    await _broadcast_lock.acquire()
+    try:
+        all_users = list(context.bot_data.get("user_data", {}).keys()); user_ids = []
+        for uid_str in all_users:
+            try: user_ids.append(int(uid_str))
+            except: pass
+        total = len(user_ids)
+        if total == 0: await update.message.reply_text("⚠️ No users found in user_data."); _broadcast_lock.release(); return
+        src_chat_id = src_msg_id = None; text = None
+        if has_reply: src_chat_id = update.message.reply_to_message.chat_id; src_msg_id = update.message.reply_to_message.message_id
+        else: text = " ".join(context.args)
+        status_msg = await update.message.reply_text(f"📡 <b>Broadcasting…</b>\n━━━━━━━━━━━━━━━━\n👥 <b>Total</b>   ➛ <b>{total}</b>\n📨 <b>Sent</b>    ➛ <b>0</b>\n🚫 <b>Blocked</b> ➛ <b>0</b>\n❌ <b>Failed</b>  ➛ <b>0</b>\n━━━━━━━━━━━━━━━━\n<code>[{'░' * 20}]</code> 0/{total}  (0%)", parse_mode="HTML")
+        await update.message.reply_text(f"🚀 <b>Broadcast started!</b>\nSending to <b>{total}</b> users in background…", parse_mode="HTML")
+        asyncio.create_task(_broadcast_worker(context.bot, status_msg, user_ids, src_chat_id=src_chat_id, src_msg_id=src_msg_id, text=text))
+    except Exception as e:
+        if _broadcast_lock.locked(): _broadcast_lock.release()
+        await update.message.reply_text(f"❌ Error starting broadcast: {e}")
+
+async def cmd_bstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    if _broadcast_lock.locked(): await update.message.reply_text("📡 <b>Status:</b> Broadcast is currently running…", parse_mode="HTML")
+    else: await update.message.reply_text("✅ <b>Status:</b> No broadcast in progress.", parse_mode="HTML")
+
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; user = query.from_user; data = query.data
     _self_answering = (data == "check_sub" or data.startswith("mshr:") or data.startswith("mshs:") or data.startswith("stop_msh_") or data.startswith("dl_approved_") or data.startswith("dl_all_") or data.startswith("ogs_") or data.startswith("owner_ban_") or data.startswith("owner_unban_") or data.startswith("owner_resub_") or data.startswith("find_sub_"))
@@ -815,13 +879,52 @@ def main():
         _request = HTTPXRequest(connection_pool_size=512, connect_timeout=15.0, read_timeout=60.0, write_timeout=60.0, pool_timeout=120.0)
         _get_updates_request = HTTPXRequest(connection_pool_size=8, connect_timeout=15.0, read_timeout=65.0, write_timeout=60.0, pool_timeout=120.0)
         app = Application.builder().token(BOT_TOKEN).request(_request).get_updates_request(_get_updates_request).concurrent_updates(1024).post_init(_post_init).post_shutdown(_post_shutdown).build()
-        app.add_handler(CommandHandler("start", cmd_start)); app.add_handler(CommandHandler("ping", cmd_ping)); app.add_handler(CommandHandler("status", cmd_status)); app.add_handler(CommandHandler("plan", cmd_plan)); app.add_handler(CommandHandler("sub", cmd_sub)); app.add_handler(CommandHandler("rm", cmd_rm)); app.add_handler(get_bin_lookup_handler()); app.add_handler(CommandHandler("sh", _cmd_sh_gated)); app.add_handler(CommandHandler("msh", cmd_msh)); app.add_handler(get_me_handler())
-        app.add_handler(CommandHandler("cards", cmd_cards)); app.add_handler(CommandHandler("1day", cmd_1day)); app.add_handler(CommandHandler("gen", cmd_gen)); app.add_handler(CommandHandler("add", cmd_add)); app.add_handler(CommandHandler("rem", cmd_rem)); app.add_handler(CommandHandler("find", cmd_find)); app.add_handler(CommandHandler("resub", cmd_resub)); app.add_handler(CommandHandler("rsub", cmd_resub)); app.add_handler(CommandHandler("ban", cmd_ban)); app.add_handler(CommandHandler("unban", cmd_unban)); app.add_handler(CommandHandler("info", cmd_info)); app.add_handler(CommandHandler("maintenance", cmd_maintenance)); app.add_handler(CommandHandler("onsh", cmd_onsh)); app.add_handler(CommandHandler("offsh", cmd_offsh)); app.add_handler(CommandHandler("onmsh", cmd_onmsh)); app.add_handler(CommandHandler("offmsh", cmd_offmsh))
-        app.add_handler(CallbackQueryHandler(callback_handler)); app.add_error_handler(error_handler)
-        logger.info(f"Superman Bot {VERSION} starting..."); app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+        
+        # User Commands
+        app.add_handler(CommandHandler("start", cmd_start))
+        app.add_handler(CommandHandler("ping", cmd_ping))
+        app.add_handler(CommandHandler("status", cmd_status))
+        app.add_handler(CommandHandler("plan", cmd_plan))
+        app.add_handler(CommandHandler("sub", cmd_sub))
+        app.add_handler(CommandHandler("rm", cmd_rm))
+        app.add_handler(get_bin_lookup_handler())
+        app.add_handler(CommandHandler("sh", _cmd_sh_gated))
+        app.add_handler(CommandHandler("msh", cmd_msh))
+        app.add_handler(get_me_handler())
+        
+        # Owner Commands
+        app.add_handler(CommandHandler("cards", cmd_cards))
+        app.add_handler(CommandHandler("1day", cmd_1day))
+        app.add_handler(CommandHandler("gen", cmd_gen))
+        app.add_handler(CommandHandler("add", cmd_add))
+        app.add_handler(CommandHandler("rem", cmd_rem))
+        app.add_handler(CommandHandler("find", cmd_find))
+        app.add_handler(CommandHandler("resub", cmd_resub))
+        app.add_handler(CommandHandler("rsub", cmd_resub))
+        app.add_handler(CommandHandler("ban", cmd_ban))
+        app.add_handler(CommandHandler("unban", cmd_unban))
+        app.add_handler(CommandHandler("broadcast", cmd_broadcast))
+        app.add_handler(CommandHandler("bstatus", cmd_bstatus))
+        app.add_handler(CommandHandler("info", cmd_info))
+        app.add_handler(CommandHandler("allcm", cmd_allcm))
+        app.add_handler(CommandHandler("allsub", cmd_allsub))
+        app.add_handler(CommandHandler("maintenance", cmd_maintenance))
+        app.add_handler(CommandHandler("onsh", cmd_onsh))
+        app.add_handler(CommandHandler("offsh", cmd_offsh))
+        app.add_handler(CommandHandler("onmsh", cmd_onmsh))
+        app.add_handler(CommandHandler("offmsh", cmd_offmsh))
+        
+        app.add_handler(CallbackQueryHandler(callback_handler))
+        app.add_error_handler(error_handler)
+        
+        logger.info(f"Superman Bot {VERSION} starting...")
+        app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
     except KeyboardInterrupt: pass
-    except Exception as _crash_err: logger.error(f"Bot crashed: {_crash_err}", exc_info=True); raise
-    finally: release_instance_lock()
+    except Exception as _crash_err:
+        logger.error(f"Bot crashed: {_crash_err}", exc_info=True)
+        raise
+    finally:
+        release_instance_lock()
 
 if __name__ == "__main__":
     main()
