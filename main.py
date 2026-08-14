@@ -126,7 +126,7 @@ def ui_profile(user, context: ContextTypes.DEFAULT_TYPE) -> str:
     premium = raw_plan != "TRIAL"; credits = "Unlimited" if premium else str(ud.get("credits", 150)); plan_emoji = tg_emoji(get_plan_emoji_id(raw_plan), "⭐")
     uname = escape(f"@{user.username}" if user.username else user.first_name or "User"); joined = ud.get("joined", datetime.now().strftime("%Y-%m-%d")).split(" ")[0]; last_active = ud.get("last_active", "N/A"); total_refs = ud.get("total_refs", 0); total_checks = ud.get("total_checks", 0)
     ban_status = "🔴 Banned" if ud.get("banned", False) else "🟢 Active"
-    if premium and expires > now: exp_date = datetime.fromtimestamp(expires).strftime("%Y-%m-%d %H:%M"); rem_d = int((expires - now) / 86400); rem_h = int(((expires - now) % 86400) / 3600); expire_line = f"⏳ <b>Expires</b> ➤ {exp_date} ({rem_d}d {rem_h}h)"
+    if premium and expires > now: exp_date = datetime.fromtimestamp(expires).strftime("%Y-%m-%d"); rem_d = int((expires - now) / 86400); rem_h = int(((expires - now) % 86400) / 3600); expire_line = f"⏳ <b>Expires</b> ➤ {exp_date} ({rem_d}d {rem_h}h)"
     else: expire_line = "⏳ <b>Expires</b> ➤ Never (Trial)"
     return f"✦ <b>USER PROFILE</b> ✦\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n👤 <b>Name</b> ➤ {uname}\n🆔 <b>ID</b> ➤ <code>{user.id}</code>\n👑 <b>Plan</b> ➤ {get_styled_plan(raw_plan)}\n💫 <b>Status</b> ➤ {ban_status}\n💰 <b>Credits</b> ➤ {credits}\n📅 <b>Joined</b> ➤ {joined}\n{expire_line}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n📊 <b>STATISTICS</b>\n✅ <b>Checks</b> ➤ {total_checks}\n🤝 <b>Referrals</b> ➤ {total_refs} (+{total_refs * REFERRAL_CREDITS} credits)\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n🤖 <b>Dev:</b> <a href='{DEV_LINK}'>Superman</a>"
 
