@@ -443,8 +443,33 @@ def _get_flag(alpha2):
 
 async def _fetch_bin_direct(bin6: str) -> dict:
     sources = [
-        {"url": f"https://data.handyapi.com/bin/{bin6}", "parse": lambda d: {"scheme": (d.get("Scheme") or "").upper(), "bank": d.get("Issuer") or "", "country": (d.get("Country") or {}).get("Name", ""), "country_code": (d.get("Country") or {}).get("A2", "")}},
-        {"url": f"https://lookup.binlist.net/{bin6}", "parse": lambda d: {"scheme": (d.get("scheme") or "").upper(), "bank": (d.get("bank") or {}).get("name", ""), "country": (d.get("country") or {}).get("name", ""), "country_code": (d.get("country") or {}).get("alpha2", "")}},
+        {
+            "url": f"https://bins.antipublic.cc/bins/{bin6}", 
+            "parse": lambda d: {
+                "scheme": (d.get("scheme") or d.get("brand") or "N/A").upper(), 
+                "bank": d.get("bank") or d.get("bank_name") or "N/A", 
+                "country": d.get("country_name") or d.get("country") or "N/A", 
+                "country_code": d.get("country_alpha2") or d.get("country_code") or ""
+            }
+        },
+        {
+            "url": f"https://data.handyapi.com/bin/{bin6}", 
+            "parse": lambda d: {
+                "scheme": (d.get("Scheme") or d.get("scheme") or "N/A").upper(), 
+                "bank": d.get("Issuer") or d.get("Bank") or "N/A", 
+                "country": (d.get("Country") or {}).get("Name", "") or "N/A", 
+                "country_code": (d.get("Country") or {}).get("A2", "")
+            }
+        },
+        {
+            "url": f"https://lookup.binlist.net/{bin6}", 
+            "parse": lambda d: {
+                "scheme": (d.get("scheme") or "N/A").upper(), 
+                "bank": (d.get("bank") or {}).get("name", "") or "N/A", 
+                "country": (d.get("country") or {}).get("name", "") or "N/A", 
+                "country_code": (d.get("country") or {}).get("alpha2", "")
+            }
+        }
     ]
     _to = aiohttp.ClientTimeout(total=10, connect=5)
     for src in sources:
@@ -454,23 +479,41 @@ async def _fetch_bin_direct(bin6: str) -> dict:
                     if r.status != 200: continue
                     try: data = await r.json(content_type=None)
                     except: continue
+                    
                     info = src["parse"](data)
-                    if info.get("scheme") and (info.get("bank") or info.get("country")):
-                        info["country_emoji"] = _get_flag(info.get("country_code", ""))
-                        return info
+                    
+                    if info.get("scheme") and info.get("scheme") != "N/A":
+                        if (info.get("bank") and info.get("bank") != "N/A") or (info.get("country") and info.get("country") != "N/A"):
+                            info["country_emoji"] = _get_flag(info.get("country_code", ""))
+                            return info
         except: continue
     return {}
 
 async def _bin_lookup(bin6: str) -> dict:
     if bin6 in _BIN_CACHE: return _BIN_CACHE[bin6]
+    
     result = {}
     try: result = await asyncio.wait_for(_fetch_bin_direct(bin6), timeout=10)
     except: pass
-    if not result or not result.get("scheme"):
-        try: result = await asyncio.wait_for(get_bin_info(bin6), timeout=8) or {}
-        except: result = {}
-    if result and not result.get("country_emoji"):
+    
+    if not result or result.get("scheme") == "N/A" or (result.get("bank") == "N/A" and result.get("country") == "N/A"):
+        try: 
+            fallback = await asyncio.wait_for(get_bin_info(bin6), timeout=8) or {}
+            if fallback.get("scheme") and fallback.get("scheme") != "N/A":
+                if not result or result.get("bank") == "N/A":
+                    result["bank"] = fallback.get("bank", "N/A")
+                if not result or result.get("country") == "N/A":
+                    result["country"] = fallback.get("country", "N/A")
+                    result["country_code"] = fallback.get("country_code", "")
+                if not result or result.get("scheme") == "N/A":
+                    result["scheme"] = fallback.get("scheme", "N/A")
+        except: pass
+            
+    if not result:
+        result = {"scheme": "N/A", "bank": "N/A", "country": "N/A", "country_code": "", "country_emoji": "🌍"}
+    if not result.get("country_emoji"):
         result["country_emoji"] = _get_flag(result.get("country_code", ""))
+        
     _BIN_CACHE[bin6] = result
     return result
 
@@ -478,7 +521,8 @@ def _bin_str_plain(bd: dict) -> str:
     def _g(*keys):
         for k in keys:
             v = bd.get(k)
-            if v and str(v).strip() not in ("", "None", "N/A", "null", "UNKNOWN"): return str(v).strip()
+            if v and str(v).strip().upper() not in ("", "NONE", "N/A", "NULL", "UNKNOWN", "N"):
+                return str(v).strip()
         return "N/A"
     scheme = _g("scheme", "brand", "card_scheme", "network").upper()
     bank = _g("bank", "bank_name", "issuer", "issuer_name")
