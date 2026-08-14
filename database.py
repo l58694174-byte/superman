@@ -16,6 +16,10 @@ async def attach(app):
         _connected = False
         return
     try:
+        # Fix URL format for asyncpg if it starts with postgres://
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+            
         _pool = await asyncpg.create_pool(db_url)
         async with _pool.acquire() as conn:
             # Create table automatically if it doesn't exist
