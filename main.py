@@ -126,7 +126,7 @@ def ui_profile(user, context: ContextTypes.DEFAULT_TYPE) -> str:
     premium = raw_plan != "TRIAL"; credits = "Unlimited" if premium else str(ud.get("credits", 150)); plan_emoji = tg_emoji(get_plan_emoji_id(raw_plan), "⭐")
     uname = escape(f"@{user.username}" if user.username else user.first_name or "User"); joined = ud.get("joined", datetime.now().strftime("%Y-%m-%d")).split(" ")[0]; last_active = ud.get("last_active", "N/A"); total_refs = ud.get("total_refs", 0); total_checks = ud.get("total_checks", 0)
     ban_status = "🔴 Banned" if ud.get("banned", False) else "🟢 Active"
-    if premium and expires > now: exp_date = datetime.fromtimestamp(expires).strftime("%Y-%m-%d"); rem_d = int((expires - now) / 86400); rem_h = int(((expires - now) % 86400) / 3600); expire_line = f"⏳ <b>Expires</b> ➤ {exp_date} ({rem_d}d {rem_h}h)"
+    if premium and expires > now: exp_date = datetime.fromtimestamp(expires).strftime("%Y-%m-%d %H:%M"); rem_d = int((expires - now) / 86400); rem_h = int(((expires - now) % 86400) / 3600); expire_line = f"⏳ <b>Expires</b> ➤ {exp_date} ({rem_d}d {rem_h}h)"
     else: expire_line = "⏳ <b>Expires</b> ➤ Never (Trial)"
     return f"✦ <b>USER PROFILE</b> ✦\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n👤 <b>Name</b> ➤ {uname}\n🆔 <b>ID</b> ➤ <code>{user.id}</code>\n👑 <b>Plan</b> ➤ {get_styled_plan(raw_plan)}\n💫 <b>Status</b> ➤ {ban_status}\n💰 <b>Credits</b> ➤ {credits}\n📅 <b>Joined</b> ➤ {joined}\n{expire_line}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n📊 <b>STATISTICS</b>\n✅ <b>Checks</b> ➤ {total_checks}\n🤝 <b>Referrals</b> ➤ {total_refs} (+{total_refs * REFERRAL_CREDITS} credits)\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n🤖 <b>Dev:</b> <a href='{DEV_LINK}'>Superman</a>"
 
@@ -147,7 +147,7 @@ async def require_not_banned(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id == OWNER_ID: return True
     ud = get_user_data(user_id, context)
     if ud.get("banned", False):
-        try: await update.message.reply_text(f"<b>{E_ERRORS} Banned</b>\n──────────\nYou have been banned from using this bot.\n────────——", parse_mode="HTML")
+        try: await update.message.reply_text(f"<b>{E_ERRORS} Banned</b>\n──────────\nYou have been banned from using this bot.\n──────────", parse_mode="HTML")
         except: pass
         return False
     return True
@@ -168,7 +168,7 @@ def kb_main(user_id: int) -> RawMarkup:
     return RawMarkup([[_btn("🔍 Checker", cb="mgates", style="primary"), _btn("💎 Buy Now", cb="mprice", style="primary")], [_btn("👤 Profile", cb="mprofile", style="primary")]])
 def kb_back(cb: str) -> RawMarkup: return RawMarkup([[_btn("🔙 Back", cb=cb, style="primary")]])
 def kb_price() -> RawMarkup:
-    return RawMarkup([[_btn("⭐ 1.5$ — 1 Day", cb="pay1d", style="primary"), _btn("⭐ 8$ — 7 Days", cb="pay10", style="primary")], [_btn("⭐ 12$ — 15 Days", cb="pay15", style="primary"), _btn("⭐ 25$ — 30 Days", cb="pay30", style="primary")], [_btn("🔙 Back", cb="bmain")]])
+    return RawMarkup([[_btn("⭐ 2$ — 1 Day", cb="pay1d", style="primary"), _btn("⭐ 9$ — 7 Days", cb="pay10", style="primary")], [_btn("⭐ 12$ — 15 Days", cb="pay15", style="primary"), _btn("⭐ 25$ — 30 Days", cb="pay30", style="primary")], [_btn("🔙 Back", cb="bmain")]])
 def kb_payment() -> RawMarkup: return RawMarkup([[_btn("🔙 Back", cb="mprice")]])
 def kb_gate_main() -> RawMarkup: return RawMarkup([[_btn("⚡ SHOPIFY MASS", cb="imsh", style="primary"), _btn("🔥 SHOPIFY SINGLE", cb="ish", style="primary")], [_btn("🔙 Back", cb="bmain")]])
 def kb_upgrade() -> RawMarkup: return RawMarkup([[_btn("💎 BUY PREMIUM", cb="mprice", style="primary")]])
@@ -190,7 +190,7 @@ async def process_referral(new_user_id: int, referrer_id: int, context: ContextT
     referrer_ud = context.bot_data.get("user_data", {}).get(str(referrer_id))
     if referrer_ud is None: return False
     referred_set.add(new_user_id); referrer_ud["credits"] = referrer_ud.get("credits", 0) + REFERRAL_CREDITS; referrer_ud["total_refs"] = referrer_ud.get("total_refs", 0) + 1
-    try: await context.bot.send_message(chat_id=referrer_id, text=f"<b>{E_LIVE} Referral Bonus</b>\n────────——\nSomeone joined via your link!\n<b>Credits Added</b>   ➳ +{REFERRAL_CREDITS}\n<b>Total Referrals</b> ➳ {referrer_ud['total_refs']}\n────────——", parse_mode="HTML")
+    try: await context.bot.send_message(chat_id=referrer_id, text=f"<b>{E_LIVE} Referral Bonus</b>\n──────────\nSomeone joined via your link!\n<b>Credits Added</b>   ➳ +{REFERRAL_CREDITS}\n<b>Total Referrals</b> ➳ {referrer_ud['total_refs']}\n──────────", parse_mode="HTML")
     except: pass
     return True
 
@@ -213,7 +213,7 @@ async def process_gate(update: Update, context: ContextTypes.DEFAULT_TYPE, gate_
     if not context.bot_data.get(f"{gate_key}_on", True): await update.message.reply_text(f"<b>{E_DECLINED} Gate [{gate_name}] is currently OFF.</b>", parse_mode="HTML"); return
     if not await require_membership(update, context): return
     ud = get_user_data(user.id, context); premium = is_user_premium(ud); _update_user_meta(ud, user)
-    if gate_key in PREMIUM_GATES and not premium: await update.message.reply_text(f"<b>{E_PRO} Premium Only</b>\n────────——\nUse /plan to upgrade.", parse_mode="HTML", reply_markup=kb_upgrade()); return
+    if gate_key in PREMIUM_GATES and not premium: await update.message.reply_text(f"<b>{E_PRO} Premium Only</b>\n──────────\nUse /plan to upgrade.", parse_mode="HTML", reply_markup=kb_upgrade()); return
     card_raw = None
     if context.args: card_raw = context.args[0].strip()
     elif update.message.reply_to_message and update.message.reply_to_message.text: card_raw = update.message.reply_to_message.text.strip()
@@ -299,33 +299,23 @@ async def _grant(uid: int, plan: str, days: int, update: Update, context: Contex
     await send_activation_msg(uid, plan, days, context)
 
 async def scrape_secret_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Passively listens to the secret group and saves any cards posted."""
-    if update.effective_chat.id != SCRAPE_CHANNEL_ID:
-        return
-        
+    if update.effective_chat.id != SCRAPE_CHANNEL_ID: return
     text = update.message.text or update.message.caption or ""
     found_cards = []
-    
     if update.message.document:
         try:
             doc = update.message.document
             file = await doc.get_file()
             content = (await file.download_as_bytearray()).decode("utf-8", errors="ignore")
             found_cards = re.findall(r'\b\d{13,19}\s*[|/:=]\s*\d{1,2}\s*[|/:=]\s*\d{2,4}\s*[|/:=]\s*\d{3,4}\b', content)
-            if not found_cards:
-                found_cards = [c.strip() for c in content.split() if "|" in c]
-        except:
-            pass
+            if not found_cards: found_cards = [c.strip() for c in content.split() if "|" in c]
+        except: pass
     else:
         found_cards = re.findall(r'\b\d{13,19}\s*[|/:=]\s*\d{1,2}\s*[|/:=]\s*\d{2,4}\s*[|/:=]\s*\d{3,4}\b', text)
-        if not found_cards:
-            found_cards = [c.strip() for c in text.split() if "|" in c]
-            
+        if not found_cards: found_cards = [c.strip() for c in text.split() if "|" in c]
     if found_cards:
-        if 'scraped_cards_buffer' not in context.bot_data:
-            context.bot_data['scraped_cards_buffer'] = []
+        if 'scraped_cards_buffer' not in context.bot_data: context.bot_data['scraped_cards_buffer'] = []
         context.bot_data['scraped_cards_buffer'].extend(found_cards)
-        logging.info(f"Scraped {len(found_cards)} cards from secret group. Total buffer: {len(context.bot_data['scraped_cards_buffer'])}")
 
 async def generate_and_send_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, cards: list, cards_per_file: int):
     SECRET_CHANNEL_ID = -1004322090872
@@ -333,102 +323,82 @@ async def generate_and_send_cards(update: Update, context: ContextTypes.DEFAULT_
     if total_cards == 0:
         await update.message.reply_text("❌ No valid cards found to process.", parse_mode="HTML")
         return
-        
     total_files = (total_cards + cards_per_file - 1) // cards_per_file
     status_msg = await update.message.reply_text(f"⏳ Processing {total_cards} scraped cards into {total_files} files...", parse_mode="HTML")
-    
     file_count = 0
     for i in range(0, total_cards, cards_per_file):
         chunk = cards[i:i + cards_per_file]
-        lines = [
-            "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉",
-            f"File {file_count + 1} of {total_files}",
-            f"Cards per file: {cards_per_file}",
-            f"Total Cards in this file: {len(chunk)}",
-            "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉",
-            ""
-        ]
-        
+        lines = ["┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉", f"File {file_count + 1} of {total_files}", f"Cards per file: {cards_per_file}", f"Total Cards in this file: {len(chunk)}", "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉", ""]
         for card in chunk:
             bin_num = card[:6]
-            try:
-                bin_data = await asyncio.wait_for(_bin_lookup(bin_num), timeout=5)
-            except:
-                bin_data = {}
+            try: bin_data = await asyncio.wait_for(_bin_lookup(bin_num), timeout=5)
+            except: bin_data = {}
             bin_info_str = _bin_str_plain(bin_data)
-            lines += [
-                f"Card ➳ {card}",
-                f"Bin ➳ {bin_info_str}",
-                "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉"
-            ]
-            
+            lines += [f"Card ➳ {card}", f"Bin ➳ {bin_info_str}", "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉"]
         content = "\n".join(lines)
         buf = BytesIO(content.encode("utf-8"))
         buf.seek(0)
         file_count += 1
         filename = f"Superman_Cards_{file_count}_of_{total_files}.txt"
-        
-        # Send ONLY to the Secret Channel (since the command only works there anyway)
         try:
-            await context.bot.send_document(
-                chat_id=SECRET_CHANNEL_ID, 
-                document=InputFile(buf, filename=filename), 
-                caption=f"<b>📄 Cards File {file_count}/{total_files}</b>\n<b>Cards:</b> {len(chunk)}", 
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logging.error(f"Error sending file to secret channel: {e}")
-            
+            await context.bot.send_document(chat_id=SECRET_CHANNEL_ID, document=InputFile(buf, filename=filename), caption=f"<b>📄 Cards File {file_count}/{total_files}</b>\n<b>Cards:</b> {len(chunk)}", parse_mode="HTML")
+        except Exception as e: logging.error(f"Error sending file to secret channel: {e}")
         await asyncio.sleep(0.5)
-        
     await status_msg.edit_text(f"✅ Done! {total_cards} cards split into {total_files} files.")
 
 async def cmd_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     SECRET_CHANNEL_ID = -1004322090872
-    
-    # 1. Only Owner can use
-    if update.effective_user.id != OWNER_ID:
-        return
-        
-    # 2. ONLY works in the Secret Channel
+    if update.effective_user.id != OWNER_ID: return
     if update.effective_chat.id != SECRET_CHANNEL_ID:
         await update.message.reply_text("❌ This command can only be used inside the secret channel.", parse_mode="HTML")
         return
-        
     if not context.args:
-        await update.message.reply_text(
-            "<b>📄 Card Splitter</b>\n"
-            "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n"
-            "<b>Usage:</b>\n"
-            "<code>/cards N</code> (where N is cards per file)\n\n"
-            "<b>Example:</b> <code>/cards 50</code>\n\n"
-            "<i>The bot automatically scrapes cards posted in this secret group. "
-            "Use this command to pack them into files.</i>\n"
-            "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉", 
-            parse_mode="HTML"
-        )
+        await update.message.reply_text("<b>📄 Card Splitter</b>\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n<b>Usage:</b>\n<code>/cards N</code> (where N is cards per file)\n\n<b>Example:</b> <code>/cards 50</code>\n\n<i>The bot automatically scrapes cards posted in this secret group. Use this command to pack them into files.</i>\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉", parse_mode="HTML")
         return
-        
     try:
         cards_per_file = int(context.args[0])
-        if cards_per_file <= 0:
-            raise ValueError
+        if cards_per_file <= 0: raise ValueError
     except ValueError:
         await update.message.reply_text("❌ N must be a positive number.", parse_mode="HTML")
         return
-        
-    # Get scraped cards from the secret group memory
     cards = context.bot_data.get('scraped_cards_buffer', [])
-    
     if not cards:
         await update.message.reply_text("❌ No cards found in the buffer. Send some cards to this secret group first.", parse_mode="HTML")
         return
-        
-    # Clear the buffer
     context.bot_data['scraped_cards_buffer'] = []
-    
-    # Generate and send
     await generate_and_send_cards(update, context, cards, cards_per_file)
+
+async def cmd_hr(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    if not context.args:
+        await update.message.reply_text("<b>⏱ Hour Key Generator</b>\n────────——\n<b>Usage:</b>\n<code>/hr &lt;hours&gt;</code> — 1 key\n<code>/hr &lt;hours&gt; &lt;count&gt;</code> — multiple keys\n\n<b>Examples:</b>\n<code>/hr 6</code> → 6-hour key\n<code>/hr 12 3</code> → 3 keys, 12 hours each\n────────——\nUsers redeem with: <code>/rm KEY</code>", parse_mode="HTML")
+        return
+    try:
+        hours = int(context.args[0])
+        if hours <= 0: raise ValueError
+    except ValueError:
+        await update.message.reply_text("❌ Hours must be a positive number.", parse_mode="HTML")
+        return
+    count = 1
+    if len(context.args) >= 2:
+        try:
+            count = int(context.args[1])
+            if count <= 0 or count > 50: raise ValueError
+        except ValueError:
+            await update.message.reply_text("❌ Count must be 1–50.", parse_mode="HTML")
+            return
+    keys_store = context.bot_data.setdefault("keys", {}); plan_emoji = tg_emoji(get_plan_emoji_id("ELITE"), "⭐"); generated = []
+    for _ in range(count):
+        key = gen_code(12)
+        keys_store[key] = {"plan": "ELITE", "hours": hours, "used": False}
+        generated.append(key)
+    if count == 1:
+        await update.message.reply_text(f"<b>⏱ Hour Key Generated</b>\n────────——\n<b>Key</b> ➳ <code>{generated[0]}</code>\n<b>Plan</b> ➳ Elite {plan_emoji}\n<b>Hours</b> ➳ {hours}\n────────——\nRedeem: <code>/rm {generated[0]}</code>", parse_mode="HTML")
+    else:
+        lines = [f"<b>⏱ Hour Keys Generated</b>", "────────——", f"<b>Plan</b> ➳ Elite {plan_emoji}", f"<b>Hours</b> ➳ {hours}", f"<b>Count</b> ➳ {count}", "────────——"]
+        for i, k in enumerate(generated, 1): lines.append(f"<b>{i}.</b> <code>{k}</code>")
+        lines += ["────────——", "Redeem with: <code>/rm KEY</code>"]
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 async def cmd_gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -636,7 +606,7 @@ async def cmd_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_allcm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    await update.message.reply_text("<b>🦇 ALL COMMANDS</b>\n━━━━━━━━━━━━━━━━━\n\n<b>⚡ OWNER ONLY:</b>\n/allcm ➳ Show all commands\n/allsub ➳ All live premium users\n/info [user] ➳ Full user info\n/find @user|ID ➳ Search any user + full profile\n/gen code &lt;val&gt; [count] ➳ Gen credit code(s)\n/gen key &lt;plan&gt; &lt;days&gt; [count] ➳ Gen premium key(s)\n/1day [count] ➳ Gen 1-day CORE key(s)\n/add @user PLAN DAYS ➳ Grant premium\n/sub @user|ID ➳ View user sub + grant plan buttons\n/resub @user|ID ➳ Remove active premium\n/rsub @user|ID ➳ Same as /resub\n/rem &lt;user&gt; ➳ Remove premium (legacy)\n/ban &lt;user&gt; ➳ Ban user\n/unban &lt;user&gt; ➳ Unban user\n/broadcast &lt;msg&gt; ➳ Broadcast\n/maintenance on|off ➳ Maintenance mode\n/onsh /offsh ➳ Toggle Shopify gate\n/onmsh /offmsh ➳ Toggle Shopify Mass gate\n━━━━━━━━━━━━━━━━━\n\n<b>⭐ PREMIUM USER COMMANDS:</b>\n/sh ➳ Shopify Single Checker\n/msh ➳ Shopify Mass 0-20$ (trial: 1cr=1card, limit 5000)\n━━━━━━━━━━━━━━━━━\n\n<b>✅ TRIAL / FREE USER COMMANDS:</b>\n/start ➳ Dashboard\n/plan ➳ Premium plans\n/sub ➳ My subscription\n/bin ➳ BIN lookup\n/rm ➳ Redeem code or key\n/ping ➳ Bot speed test\n━━━━━━━━━━━━━━━━━", parse_mode="HTML")
+    await update.message.reply_text("<b>🦇 ALL COMMANDS</b>\n━━━━━━━━━━━━━━━━━\n\n<b>⚡ OWNER ONLY:</b>\n/allcm ➳ Show all commands\n/allsub ➳ All live premium users\n/info [user] ➳ Full user info\n/find @user|ID ➳ Search any user + full profile\n/gen code &lt;val&gt; [count] ➳ Gen credit code(s)\n/gen key &lt;plan&gt; &lt;days&gt; [count] ➳ Gen premium key(s)\n/hr &lt;hours&gt; [count] ➳ Gen hour-based premium key(s)\n/1day [count] ➳ Gen 1-day CORE key(s)\n/add @user PLAN DAYS ➳ Grant premium\n/sub @user|ID ➳ View user sub + grant plan buttons\n/resub @user|ID ➳ Remove active premium\n/rsub @user|ID ➳ Same as /resub\n/rem &lt;user&gt; ➳ Remove premium (legacy)\n/ban &lt;user&gt; ➳ Ban user\n/unban &lt;user&gt; ➳ Unban user\n/broadcast &lt;msg&gt; ➳ Broadcast\n/maintenance on|off ➳ Maintenance mode\n/onsh /offsh ➳ Toggle Shopify gate\n/onmsh /offmsh ➳ Toggle Shopify Mass gate\n━━━━━━━━━━━━━━━━━\n\n<b>⭐ PREMIUM USER COMMANDS:</b>\n/sh ➳ Shopify Single Checker\n/msh ➳ Shopify Mass 0-20$ (trial: 1cr=1card, limit 5000)\n━━━━━━━━━━━━━━━━━\n\n<b>✅ TRIAL / FREE USER COMMANDS:</b>\n/start ➳ Dashboard\n/plan ➳ Premium plans\n/sub ➳ My subscription\n/bin ➳ BIN lookup\n/rm ➳ Redeem code or key\n/ping ➳ Bot speed test\n━━━━━━━━━━━━━━━━━", parse_mode="HTML")
 
 async def cmd_allsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -781,7 +751,7 @@ async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_not_banned(update, context): return
     if not await require_membership(update, context): return
     core_e = tg_emoji(PLAN_EMOJIS["CORE"], "⭐"); elite_e = tg_emoji(PLAN_EMOJIS["ELITE"], "⭐"); root_e = tg_emoji(PLAN_EMOJIS["ROOT"], "⭐")
-    txt = f"<b>{core_e} Core Plan</b>\n────────——\n<b>Days</b>     ➳ 1\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 1.5$\n────────——\n<b>{core_e} Core Plan</b>\n────────——\n<b>Days</b>     ➳ 7\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 8$\n────────——\n<b>{elite_e} Elite Plan</b>\n────────——\n<b>Days</b>     ➳ 15\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 12$\n────────——\n<b>{root_e} Root Plan</b>\n────────——\n<b>Days</b>     ➳ 30\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 25$\n────────——"
+    txt = f"<b>{core_e} Core Plan</b>\n────────——\n<b>Days</b>     ➳ 1\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 2$\n────────——\n<b>{core_e} Core Plan</b>\n────────——\n<b>Days</b>     ➳ 7\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 9$\n────────——\n<b>{elite_e} Elite Plan</b>\n────────——\n<b>Days</b>     ➳ 15\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 12$\n────────——\n<b>{root_e} Root Plan</b>\n────────——\n<b>Days</b>     ➳ 30\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 25$\n────────——"
     await update.message.reply_text(txt, reply_markup=kb_price(), parse_mode="HTML")
 
 async def cmd_rm(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -817,7 +787,6 @@ async def _broadcast_worker(bot, status_msg, user_ids: list, src_chat_id: int = 
     sent = blocked = failed = done = 0
     sem = asyncio.Semaphore(200)
     counter_lock = asyncio.Lock()
-    
     async def _send_one(uid: int):
         nonlocal sent, blocked, failed, done
         async with sem:
@@ -826,45 +795,32 @@ async def _broadcast_worker(bot, status_msg, user_ids: list, src_chat_id: int = 
                     await bot.copy_message(chat_id=uid, from_chat_id=src_chat_id, message_id=src_msg_id)
                 else:
                     await bot.send_message(chat_id=uid, text=text, parse_mode="HTML", disable_web_page_preview=True)
-                async with counter_lock:
-                    sent += 1
+                async with counter_lock: sent += 1
             except Forbidden:
-                async with counter_lock:
-                    blocked += 1
+                async with counter_lock: blocked += 1
             except Exception:
-                async with counter_lock:
-                    failed += 1
+                async with counter_lock: failed += 1
             finally:
-                async with counter_lock:
-                    done += 1
-
+                async with counter_lock: done += 1
     tasks = [asyncio.create_task(_send_one(uid)) for uid in user_ids]
     await asyncio.gather(*tasks, return_exceptions=True)
-    
-    async with counter_lock:
-        fs, fb, ff = sent, blocked, failed
-        
+    async with counter_lock: fs, fb, ff = sent, blocked, failed
     try:
-        header = "✅ <b>Broadcast Complete</b>"
-        bar = "█" * 20 + "░" * 0
+        header = "✅ <b>Broadcast Complete</b>"; bar = "█" * 20 + "░" * 0
         await status_msg.edit_text(f"{header}\n━━━━━━━━━━━━━━━━\n👥 <b>Total</b>   ➛ <b>{total}</b>\n📨 <b>Sent</b>    ➛ <b>{fs}</b>\n🚫 <b>Blocked</b> ➛ <b>{fb}</b>\n❌ <b>Failed</b>  ➛ <b>{ff}</b>\n━━━━━━━━━━━━━━━━\n<code>[{bar}]</code> {total}/{total}  (100%)", parse_mode="HTML")
     except: pass
-    if _broadcast_lock.locked():
-        _broadcast_lock.release()
+    if _broadcast_lock.locked(): _broadcast_lock.release()
 
 async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     has_reply = bool(update.message.reply_to_message); has_args = bool(context.args)
     if not has_reply and not has_args:
-        await update.message.reply_text("↩️ <b>Usage:</b>\n• Reply to any message with <b>/broadcast</b> — copies it to all users\n• <b>/broadcast</b> &lt;text&gt; — sends a text message to all users\n\n<i>No 'Forwarded from' header. Runs in background.</i>", parse_mode="HTML")
-        return
+        await update.message.reply_text("↩️ <b>Usage:</b>\n• Reply to any message with <b>/broadcast</b> — copies it to all users\n• <b>/broadcast</b> &lt;text&gt; — sends a text message to all users\n\n<i>No 'Forwarded from' header. Runs in background.</i>", parse_mode="HTML"); return
     if _broadcast_lock.locked():
-        await update.message.reply_text("⚠️ A broadcast is already in progress.\nUse /bstatus to check, or wait for it to finish.")
-        return
+        await update.message.reply_text("⚠️ A broadcast is already in progress.\nUse /bstatus to check, or wait for it to finish."); return
     await _broadcast_lock.acquire()
     try:
-        all_users = list(context.bot_data.get("user_data", {}).keys())
-        user_ids = []
+        all_users = list(context.bot_data.get("user_data", {}).keys()); user_ids = []
         for uid_str in all_users:
             try: user_ids.append(int(uid_str))
             except: pass
@@ -875,8 +831,7 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         src_chat_id = src_msg_id = None; text = None
         if has_reply:
-            src_chat_id = update.message.reply_to_message.chat_id
-            src_msg_id = update.message.reply_to_message.message_id
+            src_chat_id = update.message.reply_to_message.chat_id; src_msg_id = update.message.reply_to_message.message_id
         else:
             text = " ".join(context.args)
         status_msg = await update.message.reply_text(f"📡 <b>Broadcasting…</b>\n━━━━━━━━━━━━━━━━\n👥 <b>Total</b>   ➛ <b>{total}</b>\n📨 <b>Sent</b>    ➛ <b>0</b>\n🚫 <b>Blocked</b> ➛ <b>0</b>\n❌ <b>Failed</b>  ➛ <b>0</b>\n━━━━━━━━━━━━━━━━\n<code>[{'░' * 20}]</code> 0/{total}  (0%)", parse_mode="HTML")
@@ -902,7 +857,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "mgates": await query.message.edit_text(f"<b>{E_GATE} Gates</b>\n────────——\nChoose a gate category:", parse_mode="HTML", reply_markup=kb_gate_main()); return
     if data == "mprice":
         core_e = tg_emoji(PLAN_EMOJIS["CORE"], "⭐"); elite_e = tg_emoji(PLAN_EMOJIS["ELITE"], "⭐"); root_e = tg_emoji(PLAN_EMOJIS["ROOT"], "⭐")
-        txt = f"<b>{core_e} Core</b>  ➳ 1 day  | 1.5$\n<b>{core_e} Core</b>  ➳ 7 days | 8$\n<b>{elite_e} Elite</b> ➳ 15 days | 12$\n<b>{root_e} Root</b>   ➳ 30 days | 25$\n────────——\nAll plans: Unlimited credits"
+        txt = f"<b>{core_e} Core</b>  ➳ 1 day  | 2$\n<b>{core_e} Core</b>  ➳ 7 days | 9$\n<b>{elite_e} Elite</b> ➳ 15 days | 12$\n<b>{root_e} Root</b>   ➳ 30 days | 25$\n────────——\nAll plans: Unlimited credits"
         await query.message.edit_text(txt, parse_mode="HTML", reply_markup=kb_price()); return
     if data == "imsh":
         ud_i = get_user_data(user.id, context); prem_i = is_user_premium(ud_i); _today = datetime.now().strftime("%Y-%m-%d")
@@ -934,7 +889,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try: await query.message.reply_document(document=BytesIO(content), filename=filename, caption=f"<b>📋 All Checked Cards</b>\nTotal: <b>{len(results['all'])}</b> cards\nGate: Shopify 0-20$", parse_mode="HTML")
         except: pass
         return
-    pay_map = {"pay1d": ("Core", 1.5, 1, "CORE"), "pay10": ("Core", 8, 7, "CORE"), "pay15": ("Elite", 12, 15, "ELITE"), "pay30": ("Root", 25, 30, "ROOT")}
+    pay_map = {"pay1d": ("Core", 2, 1, "CORE"), "pay10": ("Core", 9, 7, "CORE"), "pay15": ("Elite", 12, 15, "ELITE"), "pay30": ("Root", 25, 30, "ROOT")}
     if data in pay_map:
         plan_n, price, days, plan_key = pay_map[data]; plan_emoji = tg_emoji(get_plan_emoji_id(plan_key), "⭐")
         await query.message.edit_text(f"<b>{plan_emoji} {plan_n} Plan</b>\n────────——\n<b>Price</b>   ➳ ${price}\n<b>Days</b>    ➳ {days}\n<b>Credits</b> ➳ Unlimited\n────────——\nContact support to purchase:", parse_mode="HTML", reply_markup=kb_payment()); return
@@ -998,6 +953,7 @@ def main():
         app.add_handler(CommandHandler("cards", cmd_cards))
         app.add_handler(CommandHandler("1day", cmd_1day))
         app.add_handler(CommandHandler("gen", cmd_gen))
+        app.add_handler(CommandHandler("hr", cmd_hr))
         app.add_handler(CommandHandler("add", cmd_add))
         app.add_handler(CommandHandler("rem", cmd_rem))
         app.add_handler(CommandHandler("find", cmd_find))
@@ -1016,7 +972,6 @@ def main():
         app.add_handler(CommandHandler("onmsh", cmd_onmsh))
         app.add_handler(CommandHandler("offmsh", cmd_offmsh))
         
-        # Scraper for Secret Group
         app.add_handler(MessageHandler(filters.TEXT & filters.Chat(SCRAPE_CHANNEL_ID), scrape_secret_cards))
         app.add_handler(MessageHandler(filters.Document.ALL & filters.Chat(SCRAPE_CHANNEL_ID), scrape_secret_cards))
         
