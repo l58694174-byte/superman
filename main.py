@@ -63,10 +63,6 @@ def release_instance_lock():
         except: pass
         _lock_file_handle = None
 
-def B(text: str) -> str:
-    bold_map = {'A':'𝗔','B':'𝗕','C':'𝗖','D':'𝗗','E':'𝗘','F':'𝗙','G':'𝗚','H':'𝗛','I':'𝗜','J':'𝗝','K':'𝗞','L':'𝗟','M':'𝗠','N':'𝗡','O':'𝗢','P':'𝗣','Q':'𝗤','R':'𝗥','S':'𝗦','T':'𝗧','U':'𝗨','V':'𝗩','W':'𝗪','X':'𝗫','Y':'𝗬','Z':'𝗭','a':'𝗮','b':'𝗯','c':'𝗰','d':'𝗱','e':'𝗲','f':'𝗳','g':'𝗴','h':'𝗵','i':'𝗶','j':'𝗷','k':'𝗸','l':'𝗹','m':'𝗺','n':'𝗻','o':'𝗼','p':'𝗽','q':'𝗾','r':'𝗿','s':'𝘀','t':'𝘁','u':'𝘂','v':'𝘃','w':'𝘄','x':'𝘅','y':'𝘆','z':'𝘇','0':'𝟬','1':'𝟭','2':'𝟮','3':'𝟯','4':'𝟰','5':'𝟱','6':'𝟲','7':'𝟳','8':'𝟴','9':'𝟵'}
-    return "".join(bold_map.get(ch, ch) for ch in text)
-
 class RawMarkup(TelegramObject):
     __slots__ = ("_data",)
     def __init__(self, inline_keyboard: list): super().__init__(); self._data = {"inline_keyboard": inline_keyboard}
@@ -83,10 +79,10 @@ def _btn(text: str, *, cb: str = None, url: str = None, style: str = None, icon:
 
 def get_styled_plan(raw_plan: str) -> str:
     p = raw_plan.upper()
-    if p == "CORE": return B("Core")
-    if p == "ELITE": return B("Elite")
-    if p == "ROOT": return B("Root")
-    return B("Trial")
+    if p == "CORE": return "Core"
+    if p == "ELITE": return "Elite"
+    if p == "ROOT": return "Root"
+    return "Trial"
 
 def get_user_data(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> dict:
     uid = str(user_id)
@@ -128,29 +124,16 @@ def ui_profile(user, context: ContextTypes.DEFAULT_TYPE) -> str:
     if raw_plan != "TRIAL" and expires <= now: raw_plan = "TRIAL"; ud["plan"] = "TRIAL"; ud["expires"] = 0; expires = 0
     premium = raw_plan != "TRIAL"; credits = "Unlimited" if premium else str(ud.get("credits", 150)); plan_emoji = tg_emoji(get_plan_emoji_id(raw_plan), "⭐")
     uname = escape(f"@{user.username}" if user.username else user.first_name or "User"); joined = ud.get("joined", datetime.now().strftime("%Y-%m-%d")).split(" ")[0]; last_active = ud.get("last_active", "N/A"); total_refs = ud.get("total_refs", 0); total_checks = ud.get("total_checks", 0)
-    ban_status = f"{E_ERRORS} {B('Banned')}" if ud.get("banned", False) else f"{E_LIVE} {B('Active')}"
-    if premium and expires > now: exp_date = datetime.fromtimestamp(expires).strftime("%Y-%m-%d"); rem_d = int((expires - now) / 86400); rem_h = int(((expires - now) % 86400) / 3600); expire_line = f"✰ <b>𝐄𝐱𝐩𝐢𝐫𝐞𝐬</b>   ➔ {exp_date} ({rem_d}d {rem_h}h)"
-    else: expire_line = "✰ <b>𝐄𝐱𝐩𝐢𝐫𝐞𝐬</b>   ➔ Never (Trial)"
-    return "\n".join(["⭅ <b>𝗨𝗦𝗘𝗥 𝗖𝗢𝗡𝗧𝗥𝗢𝗟 𝗛𝗨𝗕</b> ⭆", "━━━━━━━━━━━━━━━━━━━━", f"✰ <b>𝐔𝐬𝐞𝐫𝐧𝐚𝐦𝐞</b>  ➔ {uname} {plan_emoji}", f"✰ <b>𝐔𝐬𝐞𝐫 𝐈𝐃</b>   ➔ <code>{user.id}</code>", f"✰ <b>𝐀𝐜𝐜𝐞𝐬𝐬</b>    ➔ {get_styled_plan(raw_plan)}", f"✰ <b>𝐒𝐭𝐚𝐭𝐮𝐬</b>    ➔ {ban_status}", f"✰ <b>𝐂𝐫𝐞𝐝𝐢𝐭𝐬</b>   ➔ {credits}", f"✰ <b>𝐉𝐨𝐢𝐧𝐞𝐝</b>    ➔ {joined}", expire_line, "━━━━━━━━━━━━━━━━━━━━", f"✰ <b>𝐋𝐚𝐬𝐭 𝐀𝐜𝐭𝐢𝐯𝐞</b> ➔ {last_active}", f"✰ <b>𝐓𝐨𝐭𝐚𝐥 𝐂𝐡𝐞𝐜𝐤𝐬</b> ➔ {total_checks}", f"✰ <b>𝐑𝐞𝐟𝐞𝐫𝐫𝐚𝐥𝐬</b>  ➔ {total_refs} (+{total_refs * REFERRAL_CREDITS} credits)", "━━━━━━━━━━━━━━━━━━━━", f"{E_DEV} 𝗩𝗲𝗿𝘀𝗶𝗼𝗻 ➔ {VERSION}  |  <a href='{DEV_LINK}'>Superman</a> {E_PRO}"])
-
-def ui_full_profile(user, context: ContextTypes.DEFAULT_TYPE) -> str:
-    ud = get_user_data(user.id, context); raw_plan = ud.get("plan", "TRIAL").upper(); expires = ud.get("expires", 0); now = time.time()
-    if raw_plan != "TRIAL" and expires <= now: raw_plan = "TRIAL"; ud["plan"] = "TRIAL"; ud["expires"] = 0; expires = 0
-    premium = raw_plan != "TRIAL"; credits = "Unlimited" if premium else str(ud.get("credits", 150)); plan_emoji = tg_emoji(get_plan_emoji_id(raw_plan), "⭐")
-    uname = escape(f"@{user.username}" if user.username else user.first_name or "User"); joined = ud.get("joined", "N/A"); last_active = ud.get("last_active", "N/A"); total_refs = ud.get("total_refs", 0); total_checks = ud.get("total_checks", 0); approved = ud.get("approved_checks", 0); declined = ud.get("declined_checks", 0); last_gate = ud.get("last_gate", "N/A"); last_card = ud.get("last_card", "N/A"); codes_red = ud.get("codes_redeemed", 0); keys_red = ud.get("keys_redeemed", 0)
-    ban_status = f"{E_ERRORS} {B('Banned')}" if ud.get("banned", False) else f"{E_LIVE} {B('Active')}"; approval_rate = f"{(approved / total_checks * 100):.1f}%" if total_checks > 0 else "N/A"
-    if premium and expires > now: exp_date = datetime.fromtimestamp(expires).strftime("%Y-%m-%d %H:%M"); rem_d = int((expires - now) / 86400); rem_h = int(((expires - now) % 86400) / 3600); expire_line = f"✰ <b>𝐄𝐱𝐩𝐢𝐫𝐞𝐬</b>   ➔ {exp_date}\n✰ <b>𝐓𝐢𝐦𝐞 𝐋𝐞𝐟𝐭</b>  ➔ {rem_d}d {rem_h}h"; last_receipt = ud.get("last_receipt"); expire_line += f"\n✰ <b>𝐑𝐞𝐜𝐞𝐢𝐩𝐭</b>   ➔ <code>{last_receipt}</code>" if last_receipt else ""
-    else: expire_line = "✰ <b>𝐄𝐱𝐩𝐢𝐫𝐞𝐬</b>   ➔ Never (Trial)"
-    lines = ["⭅ <b>𝗨𝗦𝗘𝗥 𝗣𝗥𝗢𝗙𝗜𝗟𝗘</b> ⭆", "━━━━━━━━━━━━━━━━━━━━", f"✰ <b>𝐔𝐬𝐞𝐫𝐧𝐚𝐦𝐞</b>  ➔ {uname} {plan_emoji}", f"✰ <b>𝐔𝐬𝐞𝐫 𝐈𝐃</b>   ➔ <code>{user.id}</code>", f"✰ <b>𝐀𝐜𝐜𝐞𝐬𝐬</b>    ➔ {get_styled_plan(raw_plan)}", f"✰ <b>𝐒𝐭𝐚𝐭𝐮𝐬</b>    ➔ {ban_status}", f"✰ <b>𝐂𝐫𝐞𝐝𝐢𝐭𝐬</b>   ➔ {credits}", f"✰ <b>𝐉𝐨𝐢𝐧𝐞𝐝</b>    ➔ {joined}", expire_line, "━━━━━━━━━━━━━━━━━━━━", f"✰ <b>𝐋𝐚𝐬𝐭 𝐀𝐜𝐭𝐢𝐯𝐞</b>  ➔ {last_active}", f"✰ <b>𝐓𝐨𝐭𝐚𝐥 𝐂𝐡𝐞𝐜𝐤𝐬</b> ➔ {total_checks}", f"✰ <b>𝐀𝐩𝐩𝐫𝐨𝐯𝐞𝐝</b>   ➔ {approved}", f"✰ <b>𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝</b>    ➔ {declined}", f"✰ <b>𝐀𝐩𝐩𝐫𝐨𝐯𝐚𝐥 𝐑𝐚𝐭𝐞</b> ➔ {approval_rate}", f"✰ <b>𝐋𝐚𝐬𝐭 𝐆𝐚𝐭𝐞</b>   ➔ {last_gate}", f"✰ <b>𝐋𝐚𝐬𝐭 𝐁𝐈𝐍</b>    ➔ <code>{last_card}</code>", "━━━━━━━━━━━━━━━━━━━━", f"✰ <b>𝐑𝐞𝐟𝐞𝐫𝐫𝐚𝐥𝐬</b>   ➔ {total_refs} (+{total_refs * REFERRAL_CREDITS} credits)", f"✰ <b>𝐂𝐨𝐝𝐞𝐬</b>      ➔ {codes_red} redeemed", f"✰ <b>𝐊𝐞𝐲𝐬</b>       ➔ {keys_red} redeemed"]
-    lines.append("━━━━━━━━━━━━━━━━━━━━")
-    lines.append(f"{E_DEV} 𝗩𝗲𝗿𝘀𝗶𝗼𝗻 ➔ {VERSION}  |  <a href='{DEV_LINK}'>Superman</a> {E_PRO}")
-    return "\n".join(lines)
+    ban_status = "🔴 Banned" if ud.get("banned", False) else "🟢 Active"
+    if premium and expires > now: exp_date = datetime.fromtimestamp(expires).strftime("%Y-%m-%d"); rem_d = int((expires - now) / 86400); rem_h = int(((expires - now) % 86400) / 3600); expire_line = f"⏳ <b>Expires</b> ➤ {exp_date} ({rem_d}d {rem_h}h)"
+    else: expire_line = "⏳ <b>Expires</b> ➤ Never (Trial)"
+    return f"✦ <b>USER PROFILE</b> ✦\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n👤 <b>Name</b> ➤ {uname}\n🆔 <b>ID</b> ➤ <code>{user.id}</code>\n👑 <b>Plan</b> ➤ {get_styled_plan(raw_plan)}\n💫 <b>Status</b> ➤ {ban_status}\n💰 <b>Credits</b> ➤ {credits}\n📅 <b>Joined</b> ➤ {joined}\n{expire_line}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n📊 <b>STATISTICS</b>\n✅ <b>Checks</b> ➤ {total_checks}\n🤝 <b>Referrals</b> ➤ {total_refs} (+{total_refs * REFERRAL_CREDITS} credits)\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n🤖 <b>Dev:</b> <a href='{DEV_LINK}'>Superman</a>"
 
 def ui_start_screen(user, context: ContextTypes.DEFAULT_TYPE) -> str:
     ud = get_user_data(user.id, context); raw_plan = ud.get("plan", "TRIAL").upper(); expires = ud.get("expires", 0); now = time.time()
     if raw_plan != "TRIAL" and expires <= now: raw_plan = "TRIAL"; ud["plan"] = "TRIAL"; ud["expires"] = 0
     premium = raw_plan != "TRIAL"; credits = "∞" if premium else str(ud.get("credits", 150)); uname = escape(user.first_name or "User"); joined = ud.get("joined", datetime.now().strftime("%Y-%m-%d")).split(" ")[0]; access = get_styled_plan(raw_plan)
-    return f"<b><a href='{CHANNEL_LINK}'>[❆]</a> Welcome to Superman Bot 💎</b>\n────────────\n<b>User</b>    ➳ {uname}\n<b>User ID</b> ➳ <code>{user.id}</code>\n<b>Access</b>  ➳ {access}\n<b>Credits</b> ➳ {credits}\n<b>Joined</b>  ➳ {joined}\n────────────\nChoose an option below.\n────────────\n{E_DEV} <b>Dev</b>     ➳ <a href='{DEV_LINK}'>Superman</a> {E_PRO}\n<b>Version</b> ➳ {VERSION}"
+    return f"✦ <b>SUPERMAN CHK</b> ✦\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n👤 <b>User</b> ➤ {uname}\n🆔 <b>ID</b> ➤ <code>{user.id}</code>\n👑 <b>Plan</b> ➤ {access}\n💰 <b>Credits</b> ➤ {credits}\n📅 <b>Date</b> ➤ {joined}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n<i>Select an option below to begin.</i>\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n🤖 <b>Dev:</b> <a href='{DEV_LINK}'>Superman</a> | <b>v{VERSION}</b>"
 
 async def check_force_sub(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> list:
     return []
@@ -163,40 +146,40 @@ async def require_not_banned(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id == OWNER_ID: return True
     ud = get_user_data(user_id, context)
     if ud.get("banned", False):
-        try: await update.message.reply_text(f"<b>{E_ERRORS} {B('Banned')}</b>\n──────────\nYou have been banned from using this bot.\n────────——", parse_mode="HTML")
+        try: await update.message.reply_text(f"<b>{E_ERRORS} Banned</b>\n──────────\nYou have been banned from using this bot.\n────────——", parse_mode="HTML")
         except: pass
         return False
     return True
 
 def build_check_result(card_raw: str, gate_name: str, raw_response: str, bin_data: dict, username: str, plan: str, time_taken: str, is_approved: bool, is_timeout: bool = False, is_error: bool = False) -> str:
     ch_link = f'<a href="{CHANNEL_LINK}">Superman</a>'
-    if is_timeout: status_line = "✦ <b>𝗧𝗜𝗠𝗘𝗢𝗨𝗧</b> ✦"
-    elif is_error: status_line = "✦ <b>𝗘𝗥𝗥𝗢𝗥</b> ✦"
-    elif is_approved: status_line = "✦ <b>𝗛𝗜𝗧 𝗟𝗜𝗩𝗘</b> ✦"
-    else: status_line = "✦ <b>𝗗𝗘𝗔𝗗 𝗗𝗘𝗖𝗟𝗜𝗡𝗘𝗗</b> ✦"
+    if is_timeout: status_line = "⏳ <b>STATUS ➛ TIMEOUT</b>"
+    elif is_error: status_line = "⚠️ <b>STATUS ➛ ERROR</b>"
+    elif is_approved: status_line = "🟢 <b>STATUS ➛ HIT LIVE</b>"
+    else: status_line = "🔴 <b>STATUS ➛ DEAD DECLINED</b>"
     bin_txt = "N/A"
     if bin_data and not bin_data.get("error"):
         scheme = str(bin_data.get("scheme", "N/A")).upper(); bank = bin_data.get("bank", "N/A"); country = str(bin_data.get("country", "N/A")).upper(); flag = bin_data.get("country_emoji", ""); bin_txt = f"{scheme} - {bank} - {flag} {country}".strip("- ")
     uname_display = escape(username)
-    return f"{status_line}\n━━━━━━━━━━━━━━━━━━━━\n💳 <b>𝗖𝗮𝗿𝗱</b>: <code>{card_raw}</code>\n🛒 <b>𝗚𝗮𝘁𝗲</b>: {gate_name}\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲</b>: {escape(raw_response)}\n🏦 <b>𝗕𝗜𝗡</b>: {bin_txt}\n━━━━━━━━━━━━━━━━━━━━\n⏱ <b>𝗧𝗶𝗺𝗲</b>: {time_taken}s\n👤 <b>𝗨𝘀𝗲𝗿</b>: {uname_display}\n⚡ <b>𝗕𝗼𝘁</b>: {ch_link}"
+    return f"{status_line}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n🪪 <b>Card</b> ➤ <code>{card_raw}</code>\n🛒 <b>Gate</b> ➤ {gate_name}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n💬 <b>Response</b> ➤ {escape(raw_response)}\n🏦 <b>BIN</b> ➤ {bin_txt}\n┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉\n⏱️ <b>Time</b> ➤ {time_taken}s\n👤 <b>User</b> ➤ {uname_display}\n🤖 <b>Bot</b> ➤ {ch_link}"
 
 def kb_main(user_id: int) -> RawMarkup:
-    return RawMarkup([[_btn(B("Checker"), cb="mgates", style="primary"), _btn(B("Buy Now"), cb="mprice", style="primary")], [_btn(B("Profile"), cb="mprofile", style="primary")]])
-def kb_back(cb: str) -> RawMarkup: return RawMarkup([[_btn("🔙 " + B("BACK"), cb=cb, style="primary")]])
+    return RawMarkup([[_btn("🔍 Checker", cb="mgates", style="primary"), _btn("💎 Buy Now", cb="mprice", style="primary")], [_btn("👤 Profile", cb="mprofile", style="primary")]])
+def kb_back(cb: str) -> RawMarkup: return RawMarkup([[_btn("🔙 Back", cb=cb, style="primary")]])
 def kb_price() -> RawMarkup:
-    return RawMarkup([[_btn("⭐ " + B("1.5$ — 1 Day"), cb="pay1d", style="primary"), _btn("⭐ " + B("8$ — 7 Days"), cb="pay10", style="primary")], [_btn("⭐ " + B("12$ — 15 Days"), cb="pay15", style="primary"), _btn("⭐ " + B("25$ — 30 Days"), cb="pay30", style="primary")], [_btn("🔙 " + B("BACK"), cb="bmain")]])
-def kb_payment() -> RawMarkup: return RawMarkup([[_btn("🔙 " + B("BACK"), cb="mprice")]])
-def kb_gate_main() -> RawMarkup: return RawMarkup([[_btn("⚡ " + B("SHOPIFY MASS"), cb="imsh", style="primary"), _btn("🔥 " + B("SHOPIFY SINGLE"), cb="ish", style="primary")], [_btn("🔙 " + B("BACK"), cb="bmain")]])
-def kb_upgrade() -> RawMarkup: return RawMarkup([[_btn("💎 " + B("BUY PREMIUM"), cb="mprice", style="primary")]])
-def kb_cooldown() -> RawMarkup: return RawMarkup([[_btn("💎 " + B("BUY PREMIUM") + " — No Cooldown", cb="mprice", style="primary")]])
+    return RawMarkup([[_btn("⭐ 1.5$ — 1 Day", cb="pay1d", style="primary"), _btn("⭐ 8$ — 7 Days", cb="pay10", style="primary")], [_btn("⭐ 12$ — 15 Days", cb="pay15", style="primary"), _btn("⭐ 25$ — 30 Days", cb="pay30", style="primary")], [_btn("🔙 Back", cb="bmain")]])
+def kb_payment() -> RawMarkup: return RawMarkup([[_btn("🔙 Back", cb="mprice")]])
+def kb_gate_main() -> RawMarkup: return RawMarkup([[_btn("⚡ SHOPIFY MASS", cb="imsh", style="primary"), _btn("🔥 SHOPIFY SINGLE", cb="ish", style="primary")], [_btn("🔙 Back", cb="bmain")]])
+def kb_upgrade() -> RawMarkup: return RawMarkup([[_btn("💎 BUY PREMIUM", cb="mprice", style="primary")]])
+def kb_cooldown() -> RawMarkup: return RawMarkup([[_btn("💎 BUY PREMIUM — No Cooldown", cb="mprice", style="primary")]])
 def kb_result_raw(is_premium: bool = False) -> RawMarkup:
-    if is_premium: return RawMarkup([[_btn("🤖 " + B("Open Bot"), url=BOT_LINK, style="primary"), _btn("📢 " + B("Channel"), url=CHANNEL_LINK, style="primary")]])
-    return RawMarkup([[_btn("💎 " + B("BUY PREMIUM") + " — Unlimited Checks", cb="mprice", style="primary")], [_btn("📢 @superman8585_bot", url=CHANNEL_LINK)]])
+    if is_premium: return RawMarkup([[_btn("🤖 Open Bot", url=BOT_LINK, style="primary"), _btn("📢 Channel", url=CHANNEL_LINK, style="primary")]])
+    return RawMarkup([[_btn("💎 BUY PREMIUM — Unlimited Checks", cb="mprice", style="primary")], [_btn("📢 @superman8585_bot", url=CHANNEL_LINK)]])
 def kb_msh_result(task_id: str, has_approved: bool, is_premium: bool) -> RawMarkup:
     rows = []; dl_row = []
     if has_approved: dl_row.append(_btn("📄 Approved", cb=f"dl_approved_{task_id}", style="primary"))
     dl_row.append(_btn("📋 ALL Cards", cb=f"dl_all_{task_id}")); rows.append(dl_row)
-    if not is_premium: rows.append([_btn("💎 " + B("BUY PREMIUM") + " — Unlimited", cb="mprice", style="primary")])
+    if not is_premium: rows.append([_btn("💎 BUY PREMIUM — Unlimited", cb="mprice", style="primary")])
     return RawMarkup(rows)
 
 async def process_referral(new_user_id: int, referrer_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -206,7 +189,7 @@ async def process_referral(new_user_id: int, referrer_id: int, context: ContextT
     referrer_ud = context.bot_data.get("user_data", {}).get(str(referrer_id))
     if referrer_ud is None: return False
     referred_set.add(new_user_id); referrer_ud["credits"] = referrer_ud.get("credits", 0) + REFERRAL_CREDITS; referrer_ud["total_refs"] = referrer_ud.get("total_refs", 0) + 1
-    try: await context.bot.send_message(chat_id=referrer_id, text=f"<b>{E_LIVE} {B('Referral Bonus')}</b>\n────────——\nSomeone joined via your link!\n<b>Credits Added</b>   ➳ +{REFERRAL_CREDITS}\n<b>Total Referrals</b> ➳ {referrer_ud['total_refs']}\n────────——", parse_mode="HTML")
+    try: await context.bot.send_message(chat_id=referrer_id, text=f"<b>{E_LIVE} Referral Bonus</b>\n────────——\nSomeone joined via your link!\n<b>Credits Added</b>   ➳ +{REFERRAL_CREDITS}\n<b>Total Referrals</b> ➳ {referrer_ud['total_refs']}\n────────——", parse_mode="HTML")
     except: pass
     return True
 
@@ -225,20 +208,20 @@ async def _api_request(session, url: str, card: str, site: str) -> dict:
 async def process_gate(update: Update, context: ContextTypes.DEFAULT_TYPE, gate_key: str, gate_name: str):
     user = update.effective_user
     if not await require_not_banned(update, context): return
-    if context.bot_data.get("maintenance") and user.id != OWNER_ID: await update.message.reply_text(f"<b>{E_ERRORS} {B('Maintenance')}</b>\nBot is under maintenance.", parse_mode="HTML"); return
+    if context.bot_data.get("maintenance") and user.id != OWNER_ID: await update.message.reply_text(f"<b>{E_ERRORS} Maintenance</b>\nBot is under maintenance.", parse_mode="HTML"); return
     if not context.bot_data.get(f"{gate_key}_on", True): await update.message.reply_text(f"<b>{E_DECLINED} Gate [{gate_name}] is currently OFF.</b>", parse_mode="HTML"); return
     if not await require_membership(update, context): return
     ud = get_user_data(user.id, context); premium = is_user_premium(ud); _update_user_meta(ud, user)
-    if gate_key in PREMIUM_GATES and not premium: await update.message.reply_text(f"<b>{E_PRO} {B('Premium Only')}</b>\n────────——\nUse /plan to upgrade.", parse_mode="HTML", reply_markup=kb_upgrade()); return
+    if gate_key in PREMIUM_GATES and not premium: await update.message.reply_text(f"<b>{E_PRO} Premium Only</b>\n────────——\nUse /plan to upgrade.", parse_mode="HTML", reply_markup=kb_upgrade()); return
     card_raw = None
     if context.args: card_raw = context.args[0].strip()
     elif update.message.reply_to_message and update.message.reply_to_message.text: card_raw = update.message.reply_to_message.text.strip()
     if not card_raw: await update.message.reply_text(f"<b>Usage:</b> <code>/{gate_key} cc|mm|yy|cvv</code>", parse_mode="HTML"); return
     if not premium:
         credits = ud.get("credits", 0)
-        if credits <= 0: await update.message.reply_text(f"<b>{E_PRO} {B('Credits Used Up!')}</b>\n────────——\nYou've used all your free credits.\n\n<b>💎 Upgrade to Premium</b> for:\n• Unlimited checks — no credit limit\n• No cooldowns\n• Mass checking without daily caps\n────────——\nTap <b>Buy Now</b> below to get a plan.", reply_markup=kb_upgrade(), parse_mode="HTML"); return
+        if credits <= 0: await update.message.reply_text(f"<b>{E_PRO} Credits Used Up!</b>\n────────——\nYou've used all your free credits.\n\n<b>💎 Upgrade to Premium</b> for:\n• Unlimited checks — no credit limit\n• No cooldowns\n• Mass checking without daily caps\n────────——\nTap <b>Buy Now</b> below to get a plan.", reply_markup=kb_upgrade(), parse_mode="HTML"); return
         remaining = get_cooldown_remaining(user.id, context)
-        if remaining > 0: await update.message.reply_text(f"<b>{E_ERRORS} {B('Cooldown')}</b>\n────────——\nPlease wait <b>{remaining:.1f}s</b> before your next check.\n\n{E_PRO} <b>Premium removes all cooldowns.</b>\n────────——", reply_markup=kb_cooldown(), parse_mode="HTML"); return
+        if remaining > 0: await update.message.reply_text(f"<b>{E_ERRORS} Cooldown</b>\n────────——\nPlease wait <b>{remaining:.1f}s</b> before your next check.\n\n{E_PRO} <b>Premium removes all cooldowns.</b>\n────────——", reply_markup=kb_cooldown(), parse_mode="HTML"); return
         set_cooldown(user.id, context); ud["credits"] = credits - 1
     api_url = context.bot_data.get(f"gate_url_{gate_key}") or GATE_URLS.get(gate_key, ""); site_url = GATE_SITES.get(gate_key, "example.com"); bin_num = card_raw[:6]
     if not api_url: await update.message.reply_text(f"<b>{E_ERRORS} Gate API not configured.</b>", parse_mode="HTML"); return
@@ -286,7 +269,7 @@ async def send_activation_msg(user_id: int, plan: str, days: int, context: Conte
     if username: ud["username"] = username
     await _save_premium(context.bot_data)
     plan_emoji = tg_emoji(get_plan_emoji_id(plan), "⭐"); exp_date = datetime.fromtimestamp(expires_ts).strftime("%Y-%m-%d %H:%M"); display_name = f"@{username}" if username else name; styled = get_styled_plan(plan)
-    txt = f"<b>{E_LIVE} {B('Access Activated')}</b>\n────────——\n<b>User</b>     ➳ {display_name}\n<b>Access</b>   ➳ {styled} {plan_emoji}\n<b>Days</b>     ➳ {days}\n<b>Credits</b>  ➳ Unlimited\n<b>Expires</b>  ➳ {exp_date}\n<b>Receipt</b>  ➳ <code>{receipt}</code>\n────────——\nSave this receipt ID.\n{E_DEV} Superman {E_PRO}"
+    txt = f"<b>{E_LIVE} Access Activated</b>\n────────——\n<b>User</b>     ➳ {display_name}\n<b>Access</b>   ➳ {styled} {plan_emoji}\n<b>Days</b>     ➳ {days}\n<b>Credits</b>  ➳ Unlimited\n<b>Expires</b>  ➳ {exp_date}\n<b>Receipt</b>  ➳ <code>{receipt}</code>\n────────——\nSave this receipt ID.\n{E_DEV} Superman {E_PRO}"
     try: await context.bot.send_message(chat_id=user_id, text=txt, parse_mode="HTML")
     except: pass
     return receipt
@@ -311,7 +294,7 @@ async def _grant(uid: int, plan: str, days: int, update: Update, context: Contex
     except: pass
     await _save_premium(context.bot_data)
     plan_emoji = tg_emoji(get_plan_emoji_id(plan), "⭐")
-    await update.message.reply_text(f"<b>{E_LIVE} {B('Premium Granted')}</b>\n────────——\n<b>User</b>   ➳ {display_name} (@{display_uname or 'N/A'})\n<b>Access</b> ➳ {get_styled_plan(plan)} {plan_emoji}\n<b>Days</b>   ➳ {days}\n────────——", parse_mode="HTML")
+    await update.message.reply_text(f"<b>{E_LIVE} Premium Granted</b>\n────────——\n<b>User</b>   ➳ {display_name} (@{display_uname or 'N/A'})\n<b>Access</b> ➳ {get_styled_plan(plan)} {plan_emoji}\n<b>Days</b>   ➳ {days}\n────────——", parse_mode="HTML")
     await send_activation_msg(uid, plan, days, context)
 
 async def generate_and_send_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, cards: list, cards_per_file: int):
@@ -321,13 +304,13 @@ async def generate_and_send_cards(update: Update, context: ContextTypes.DEFAULT_
     file_count = 0
     for i in range(0, total_cards, cards_per_file):
         chunk = cards[i:i + cards_per_file]
-        lines = ["━━━━━━━━━━━━━━━━━━━━━━━━", f"File {file_count + 1} of {total_files}", f"Cards per file: {cards_per_file}", f"Total Cards in this file: {len(chunk)}", "━━━━━━━━━━━━━━━━━━━━━━━━", ""]
+        lines = ["┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉", f"File {file_count + 1} of {total_files}", f"Cards per file: {cards_per_file}", f"Total Cards in this file: {len(chunk)}", "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉", ""]
         for card in chunk:
             bin_num = card[:6]
             try: bin_data = await asyncio.wait_for(_bin_lookup(bin_num), timeout=5)
             except: bin_data = {}
             bin_info_str = _bin_str_plain(bin_data)
-            lines += [f"Card ➳ {card}", f"Bin ➳ {bin_info_str}", "━━━━━━━━━━━━━━━━━━━━━━━━"]
+            lines += [f"Card ➳ {card}", f"Bin ➳ {bin_info_str}", "┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉┉"]
         content = "\n".join(lines); buf = BytesIO(content.encode("utf-8")); buf.seek(0); file_count += 1
         filename = f"Superman_Cards_{file_count}_of_{total_files}.txt"
         try:
@@ -376,7 +359,7 @@ async def handle_owner_cards(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def cmd_gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    if not context.args or len(context.args) < 2: await update.message.reply_text(f"<b>{E_DEV} {B('Generate Code / Key')}</b>\n────────——\n<b>Credit Code:</b>\n<code>/gen code &lt;credits&gt;</code>\n<code>/gen code &lt;credits&gt; &lt;count&gt;</code>\n\n<b>Premium Key:</b>\n<code>/gen key &lt;PLAN&gt; &lt;days&gt;</code>\n<code>/gen key &lt;PLAN&gt; &lt;days&gt; &lt;count&gt;</code>\n\n<b>Plans:</b>  CORE | ELITE | ROOT\n\n<b>Examples:</b>\n<code>/gen code 50</code>\n<code>/gen code 100 5</code>\n<code>/gen key ELITE 30</code>\n<code>/gen key ROOT 7 3</code>\n────────——\nUsers redeem with: <code>/rm CODE</code>", parse_mode="HTML"); return
+    if not context.args or len(context.args) < 2: await update.message.reply_text(f"<b>{E_DEV} Generate Code / Key</b>\n────────——\n<b>Credit Code:</b>\n<code>/gen code &lt;credits&gt;</code>\n<code>/gen code &lt;credits&gt; &lt;count&gt;</code>\n\n<b>Premium Key:</b>\n<code>/gen key &lt;PLAN&gt; &lt;days&gt;</code>\n<code>/gen key &lt;PLAN&gt; &lt;days&gt; &lt;count&gt;</code>\n\n<b>Plans:</b>  CORE | ELITE | ROOT\n\n<b>Examples:</b>\n<code>/gen code 50</code>\n<code>/gen code 100 5</code>\n<code>/gen key ELITE 30</code>\n<code>/gen key ROOT 7 3</code>\n────────——\nUsers redeem with: <code>/rm CODE</code>", parse_mode="HTML"); return
     kind = context.args[0].lower()
     if kind == "code":
         try:
@@ -391,9 +374,9 @@ async def cmd_gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except: await update.message.reply_text(f"<b>{E_ERRORS} Count must be 1–50.</b>", parse_mode="HTML"); return
         codes_store = context.bot_data.setdefault("codes", {}); generated = []
         for _ in range(count): code = gen_code(); codes_store[code] = {"value": value, "used": False}; generated.append(code)
-        if count == 1: await update.message.reply_text(f"<b>{E_LIVE} {B('Code Generated')}</b>\n────────——\n<b>Code</b>    ➳ <code>{generated[0]}</code>\n<b>Credits</b> ➳ +{value}\n────────——\nRedeem: <code>/rm {generated[0]}</code>", parse_mode="HTML")
+        if count == 1: await update.message.reply_text(f"<b>{E_LIVE} Code Generated</b>\n────────——\n<b>Code</b>    ➳ <code>{generated[0]}</code>\n<b>Credits</b> ➳ +{value}\n────────——\nRedeem: <code>/rm {generated[0]}</code>", parse_mode="HTML")
         else:
-            lines = [f"<b>{E_LIVE} {B('Codes Generated')}</b>", "────────——", f"<b>Credits each</b> ➳ +{value}", f"<b>Count</b>        ➳ {count}", "────────——"]
+            lines = [f"<b>{E_LIVE} Codes Generated</b>", "────────——", f"<b>Credits each</b> ➳ +{value}", f"<b>Count</b>        ➳ {count}", "────────——"]
             for i, c in enumerate(generated, 1): lines.append(f"<b>{i}.</b> <code>{c}</code>")
             lines += ["────────——", "Redeem with: <code>/rm CODE</code>"]
             await update.message.reply_text("\n".join(lines), parse_mode="HTML")
@@ -413,9 +396,9 @@ async def cmd_gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except: await update.message.reply_text(f"<b>{E_ERRORS} Count must be 1–50.</b>", parse_mode="HTML"); return
         keys_store = context.bot_data.setdefault("keys", {}); plan_emoji = tg_emoji(get_plan_emoji_id(plan_arg), "⭐"); generated = []
         for _ in range(count): key = gen_code(12); keys_store[key] = {"plan": plan_arg, "days": days, "used": False}; generated.append(key)
-        if count == 1: await update.message.reply_text(f"<b>{E_LIVE} {B('Key Generated')}</b>\n────────——\n<b>Key</b>    ➳ <code>{generated[0]}</code>\n<b>Plan</b>   ➳ {get_styled_plan(plan_arg)} {plan_emoji}\n<b>Days</b>   ➳ {days}\n────────——\nRedeem: <code>/rm {generated[0]}</code>", parse_mode="HTML")
+        if count == 1: await update.message.reply_text(f"<b>{E_LIVE} Key Generated</b>\n────────——\n<b>Key</b>    ➳ <code>{generated[0]}</code>\n<b>Plan</b>   ➳ {get_styled_plan(plan_arg)} {plan_emoji}\n<b>Days</b>   ➳ {days}\n────────——\nRedeem: <code>/rm {generated[0]}</code>", parse_mode="HTML")
         else:
-            lines = [f"<b>{E_LIVE} {B('Keys Generated')}</b>", "────────——", f"<b>Plan</b>  ➳ {get_styled_plan(plan_arg)} {plan_emoji}", f"<b>Days</b>  ➳ {days}", f"<b>Count</b> ➳ {count}", "────────——"]
+            lines = [f"<b>{E_LIVE} Keys Generated</b>", "────────——", f"<b>Plan</b>  ➳ {get_styled_plan(plan_arg)} {plan_emoji}", f"<b>Days</b>  ➳ {days}", f"<b>Count</b> ➳ {count}", "────────——"]
             for i, k in enumerate(generated, 1): lines.append(f"<b>{i}.</b> <code>{k}</code>")
             lines += ["────────——", "Redeem with: <code>/rm KEY</code>"]
             await update.message.reply_text("\n".join(lines), parse_mode="HTML")
@@ -423,7 +406,7 @@ async def cmd_gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    if len(context.args) < 3: await update.message.reply_text(f"<b>{E_DEV} {B('Grant Premium')}</b>\n────────——\n<b>Usage:</b>\n<code>/add @username PLAN DAYS</code>\n<code>/add UserID PLAN DAYS</code>\n\n<b>Plans:</b>  CORE | ELITE | ROOT\n\n<b>Example:</b>\n<code>/add @john ELITE 30</code>\n<code>/add 123456789 ROOT 7</code>\n────────——", parse_mode="HTML"); return
+    if len(context.args) < 3: await update.message.reply_text(f"<b>{E_DEV} Grant Premium</b>\n────────——\n<b>Usage:</b>\n<code>/add @username PLAN DAYS</code>\n<code>/add UserID PLAN DAYS</code>\n\n<b>Plans:</b>  CORE | ELITE | ROOT\n\n<b>Example:</b>\n<code>/add @john ELITE 30</code>\n<code>/add 123456789 ROOT 7</code>\n────────——", parse_mode="HTML"); return
     raw_target = context.args[0]; uid = await resolve_user(raw_target, context)
     if not uid: await update.message.reply_text(f"{E_ERRORS} <b>User not found:</b> <code>{raw_target}</code>\nMake sure the user has started the bot first.", parse_mode="HTML"); return
     plan_arg = context.args[1].upper()
@@ -446,7 +429,7 @@ async def cmd_rem(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_find(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    if not context.args: await update.message.reply_text(f"<b>{E_DEV} {B('Find User')}</b>\n────────——\n<b>Usage:</b>\n<code>/find @username</code>\n<code>/find username</code>\n<code>/find UserID</code>\n────────——\nSearches all registered bot users.", parse_mode="HTML"); return
+    if not context.args: await update.message.reply_text(f"<b>{E_DEV} Find User</b>\n────────——\n<b>Usage:</b>\n<code>/find @username</code>\n<code>/find username</code>\n<code>/find UserID</code>\n────────——\nSearches all registered bot users.", parse_mode="HTML"); return
     raw = context.args[0]; now = time.time(); uid = await resolve_user(raw, context)
     if not uid:
         needle = raw.lstrip("@").lower(); all_users = context.bot_data.get("user_data", {}); matches = []
@@ -456,7 +439,7 @@ async def cmd_find(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif needle in name: matches.append((int(uid_str), ud))
         if not matches: await update.message.reply_text(f"{E_ERRORS} <b>No user found for:</b> <code>{raw}</code>\nMake sure the user has started the bot first.", parse_mode="HTML"); return
         if len(matches) > 1:
-            lines = [f"<b>{E_USER} {B('Multiple Matches')}</b>\n────────——"]
+            lines = [f"<b>{E_USER} Multiple Matches</b>\n────────——"]
             for mid, mud in matches[:10]:
                 ustr = f"@{mud.get('username','')}" if mud.get("username") else str(mid); plan = mud.get("plan", "TRIAL").upper(); lines.append(f"• {mud.get('name','?')} — {ustr} — {get_styled_plan(plan)}")
             lines.append("────────——\nRefine your search to narrow down.")
@@ -469,10 +452,10 @@ async def cmd_find(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raw_plan = ud_t.get("plan", "TRIAL").upper(); expires = ud_t.get("expires", 0)
     if raw_plan != "TRIAL" and expires <= now: raw_plan = "TRIAL"; expires = 0
     premium = raw_plan != "TRIAL" and expires > now; plan_emoji = tg_emoji(get_plan_emoji_id(raw_plan), "⭐"); uname_d = f"@{ud_t.get('username','')}" if ud_t.get("username") else f"ID <code>{uid}</code>"
-    ban_str = f"{E_ERRORS} {B('Banned')}" if ud_t.get("banned") else f"{E_LIVE} {B('Active')}"
+    ban_str = f"{E_ERRORS} Banned" if ud_t.get("banned") else f"{E_LIVE} Active"
     if premium: rem = expires - now; expire_line = f"<b>Expires</b>    ➳ {datetime.fromtimestamp(expires).strftime('%Y-%m-%d %H:%M')}\n<b>Remaining</b>  ➳ <b>{int(rem//86400)}d {int((rem%86400)//3600)}h</b>"
     else: expire_line = f"<b>Expires</b>    ➳ Trial (no expiry)"
-    txt = f"<b>{E_USER} {B('User Found')}</b>\n────────——\n<b>Name</b>      ➳ {ud_t.get('name','Unknown')}\n<b>Username</b>  ➳ {uname_d}\n<b>ID</b>        ➳ <code>{uid}</code>\n<b>Status</b>    ➳ {ban_str}\n────────——\n<b>Plan</b>      ➳ {get_styled_plan(raw_plan)} {plan_emoji}\n<b>Credits</b>   ➳ {ud_t.get('credits', 150)}\n{expire_line}\n────────——\n<b>Joined</b>    ➳ {ud_t.get('joined', 'N/A')}\n<b>Last Active</b> ➳ {ud_t.get('last_active', 'N/A')}\n<b>Total Checks</b> ➳ {ud_t.get('total_checks', 0)}\n<b>Total Refs</b>   ➳ {ud_t.get('total_refs', 0)}\n────────——"
+    txt = f"<b>{E_USER} User Found</b>\n────────——\n<b>Name</b>      ➳ {ud_t.get('name','Unknown')}\n<b>Username</b>  ➳ {uname_d}\n<b>ID</b>        ➳ <code>{uid}</code>\n<b>Status</b>    ➳ {ban_str}\n────────——\n<b>Plan</b>      ➳ {get_styled_plan(raw_plan)} {plan_emoji}\n<b>Credits</b>   ➳ {ud_t.get('credits', 150)}\n{expire_line}\n────────——\n<b>Joined</b>    ➳ {ud_t.get('joined', 'N/A')}\n<b>Last Active</b> ➳ {ud_t.get('last_active', 'N/A')}\n<b>Total Checks</b> ➳ {ud_t.get('total_checks', 0)}\n<b>Total Refs</b>   ➳ {ud_t.get('total_refs', 0)}\n────────——"
     kb = RawMarkup([[_btn(f"{E_DECLINED} Ban", cb=f"owner_ban_{uid}", style="danger"), _btn(f"{E_LIVE} Unban", cb=f"owner_unban_{uid}", style="primary")], [_btn(f"💎 Grant Plan via /sub {uid}", cb=f"find_sub_{uid}", style="primary")]])
     await update.message.reply_text(txt, parse_mode="HTML", reply_markup=kb)
 
@@ -484,7 +467,7 @@ async def cmd_resub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif context.args:
         raw = context.args[0]; target_id = await resolve_user(raw, context)
         if not target_id: await update.message.reply_text(f"{E_ERRORS} <b>User not found:</b> <code>{raw}</code>", parse_mode="HTML"); return
-    else: await update.message.reply_text(f"<b>{E_DEV} {B('Remove Premium')}</b>\n────────——\n<b>Usage:</b>\n<code>/resub @username</code>\n<code>/resub UserID</code>\nOr reply to a user's message → <code>/resub</code>\n\n<b>Alias:</b> /rsub works too\n────────——", parse_mode="HTML"); return
+    else: await update.message.reply_text(f"<b>{E_DEV} Remove Premium</b>\n────────——\n<b>Usage:</b>\n<code>/resub @username</code>\n<code>/resub UserID</code>\nOr reply to a user's message → <code>/resub</code>\n\n<b>Alias:</b> /rsub works too\n────────——", parse_mode="HTML"); return
     ud = get_user_data(target_id, context); old_plan = ud.get("plan", "TRIAL").upper(); old_exp = ud.get("expires", 0); now = time.time()
     if old_plan == "TRIAL" or old_exp <= now:
         try:
@@ -497,8 +480,8 @@ async def cmd_resub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except: target_name = ud.get("name", "Unknown"); target_uname = ud.get("username", "")
     ud["plan"] = "TRIAL"; ud["expires"] = 0; await _save_premium(context.bot_data)
     uname_d = f"@{target_uname}" if target_uname else f"<code>{target_id}</code>"; old_plan_str = get_styled_plan(old_plan); rem_was = int((old_exp - now) // 86400)
-    await update.message.reply_text(f"<b>{E_DECLINED} {B('Premium Removed')}</b>\n────────——\n<b>User</b>       ➳ {target_name} ({uname_d})\n<b>ID</b>         ➳ <code>{target_id}</code>\n<b>Plan Was</b>   ➳ {old_plan_str}\n<b>Days Left</b>  ➳ {rem_was}d (cancelled)\n────────——\n<b>Status</b>     ➳ Reset to {B('Trial')}", parse_mode="HTML")
-    try: await context.bot.send_message(chat_id=target_id, text=f"<b>{E_ERRORS} {B('Subscription Cancelled')}</b>\n────────——\nYour <b>{old_plan_str}</b> premium has been removed by the admin.\nUse /plan to purchase a new subscription.\n────────——", parse_mode="HTML")
+    await update.message.reply_text(f"<b>{E_DECLINED} Premium Removed</b>\n────────——\n<b>User</b>       ➳ {target_name} ({uname_d})\n<b>ID</b>         ➳ <code>{target_id}</code>\n<b>Plan Was</b>   ➳ {old_plan_str}\n<b>Days Left</b>  ➳ {rem_was}d (cancelled)\n────────——\n<b>Status</b>     ➳ Reset to Trial", parse_mode="HTML")
+    try: await context.bot.send_message(chat_id=target_id, text=f"<b>{E_ERRORS} Subscription Cancelled</b>\n────────——\nYour <b>{old_plan_str}</b> premium has been removed by the admin.\nUse /plan to purchase a new subscription.\n────────——", parse_mode="HTML")
     except: pass
 
 async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -510,7 +493,7 @@ async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if uid == OWNER_ID: await update.message.reply_text(f"{E_ERRORS} Cannot ban the owner.", parse_mode="HTML"); return
     get_user_data(uid, context)["banned"] = True
     await update.message.reply_text(f"<b>{E_ERRORS} User <code>{uid}</code> has been banned.</b>", parse_mode="HTML")
-    try: await context.bot.send_message(chat_id=uid, text=f"<b>{E_ERRORS} {B('Banned')}</b>\n────────——\nYou have been banned from using this bot.\n────────——", parse_mode="HTML")
+    try: await context.bot.send_message(chat_id=uid, text=f"<b>{E_ERRORS} Banned</b>\n────────——\nYou have been banned from using this bot.\n────────——", parse_mode="HTML")
     except: pass
 
 async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -521,7 +504,7 @@ async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not uid: await update.message.reply_text(f"<b>Usage:</b> /unban @user|ID or reply → /unban", parse_mode="HTML"); return
     get_user_data(uid, context)["banned"] = False
     await update.message.reply_text(f"<b>{E_LIVE} User <code>{uid}</code> has been unbanned.</b>", parse_mode="HTML")
-    try: await context.bot.send_message(chat_id=uid, text=f"<b>{E_LIVE} {B('Unbanned')}</b>\n────────——\nYou can now use the bot again.\n────────——", parse_mode="HTML")
+    try: await context.bot.send_message(chat_id=uid, text=f"<b>{E_LIVE} Unbanned</b>\n────────——\nYou can now use the bot again.\n────────——", parse_mode="HTML")
     except: pass
 
 async def cmd_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -567,8 +550,8 @@ async def cmd_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     premium = raw_plan != "TRIAL" and expires > now; credits_d = "Unlimited" if premium else str(udata.get("credits", 150)); banned = udata.get("banned", False)
     plan_emoji = tg_emoji(get_plan_emoji_id(raw_plan), "⭐"); full_name = f"{target_name} {target_last_name}".strip(); uname_d = f"@{target_username}" if target_username else "None"
     total_refs = udata.get("total_refs", 0); total_checks = udata.get("total_checks", 0); approved_checks = udata.get("approved_checks", 0); declined_checks = udata.get("declined_checks", 0)
-    approval_rate = f"{(approved_checks / total_checks * 100):.1f}%" if total_checks > 0 else "N/A"; ban_icon = f"{E_ERRORS} {B('Banned')}" if banned else f"{E_LIVE} {B('Active')}"
-    txt = f"<b>{E_USER} {B('User Info')}</b>\n────────——\n<b>Name</b>       ➳ {full_name}\n<b>Username</b>   ➳ {uname_d}\n<b>ID</b>         ➳ <code>{target_id}</code>\n<b>Status</b>     ➳ {ban_icon}\n────────——\n<b>Plan</b>       ➳ {get_styled_plan(raw_plan)} {plan_emoji}\n<b>Credits</b>    ➳ {credits_d}\n"
+    approval_rate = f"{(approved_checks / total_checks * 100):.1f}%" if total_checks > 0 else "N/A"; ban_icon = f"{E_ERRORS} Banned" if banned else f"{E_LIVE} Active"
+    txt = f"<b>{E_USER} User Info</b>\n────────——\n<b>Name</b>       ➳ {full_name}\n<b>Username</b>   ➳ {uname_d}\n<b>ID</b>         ➳ <code>{target_id}</code>\n<b>Status</b>     ➳ {ban_icon}\n────────——\n<b>Plan</b>       ➳ {get_styled_plan(raw_plan)} {plan_emoji}\n<b>Credits</b>    ➳ {credits_d}\n"
     if premium and expires > now:
         rem = expires - now
         txt += f"<b>Expires</b>    ➳ {datetime.fromtimestamp(expires).strftime('%Y-%m-%d %H:%M')}\n<b>Remaining</b>  ➳ {int(rem // 86400)}d {int((rem % 86400) // 3600)}h\n"
@@ -586,7 +569,7 @@ async def cmd_allsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     now = time.time(); all_u = context.bot_data.get("user_data", {}); premium = [(uid_s, ud) for uid_s, ud in all_u.items() if ud.get("plan", "TRIAL").upper() != "TRIAL" and ud.get("expires", 0) > now]
     if not premium: await update.message.reply_text(f"<b>{E_USER} No active premium users.</b>", parse_mode="HTML"); return
-    premium.sort(key=lambda x: x[1].get("expires", 0)); lines = [f"<b>{E_PRO} {B('Live Premium Users')} ➳ {len(premium)}</b>\n────────——"]
+    premium.sort(key=lambda x: x[1].get("expires", 0)); lines = [f"<b>{E_PRO} Live Premium Users ➳ {len(premium)}</b>\n────────——"]
     for idx, (uid_s, ud) in enumerate(premium, 1):
         uname_d = f"@{ud.get('username','')}" if ud.get("username") else ud.get("name", "?"); plan = ud.get("plan", "TRIAL").upper(); expires = ud.get("expires", 0); rem_d = int((expires - now) // 86400); rem_h = int(((expires - now) % 86400) // 3600)
         lines.append(f"<b>{idx}.</b> <code>{uid_s}</code> | {uname_d}\n    ➳ {get_styled_plan(plan)} | <b>{rem_d}d {rem_h}h left</b>")
@@ -603,8 +586,8 @@ async def cmd_maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     if not context.args: state = context.bot_data.get("maintenance", False); await update.message.reply_text(f"Maintenance is currently: <b>{'ON' if state else 'OFF'}</b>\nUse: /maintenance on|off", parse_mode="HTML"); return
     arg = context.args[0].lower()
-    if arg in ("on", "1", "true"): context.bot_data["maintenance"] = True; await update.message.reply_text(f"<b>{E_ERRORS} {B('Maintenance Mode ON.')}</b> Users cannot use commands.", parse_mode="HTML")
-    elif arg in ("off", "0", "false"): context.bot_data["maintenance"] = False; await update.message.reply_text(f"<b>{E_LIVE} {B('Maintenance Mode OFF.')}</b> Bot is live.", parse_mode="HTML")
+    if arg in ("on", "1", "true"): context.bot_data["maintenance"] = True; await update.message.reply_text(f"<b>{E_ERRORS} Maintenance Mode ON.</b> Users cannot use commands.", parse_mode="HTML")
+    elif arg in ("off", "0", "false"): context.bot_data["maintenance"] = False; await update.message.reply_text(f"<b>{E_LIVE} Maintenance Mode OFF.</b> Bot is live.", parse_mode="HTML")
     else: await update.message.reply_text("Use: /maintenance on|off")
 
 async def cmd_sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -625,7 +608,7 @@ async def cmd_sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
         premium = raw_plan != "TRIAL" and expires > now; plan_emoji = tg_emoji(get_plan_emoji_id(raw_plan), "⭐"); uname_d = f"@{target_uname}" if target_uname else f"<code>{target_id}</code>"
         if premium: rem = expires - now; expire_line = f"<b>Expires</b>   ➳ {datetime.fromtimestamp(expires).strftime('%Y-%m-%d %H:%M')}\n<b>Remaining</b> ➳ <b>{int(rem//86400)}d {int((rem%86400)//3600)}h</b>"
         else: expire_line = "<b>Expires</b>   ➳ Trial (no expiry)"
-        txt = f"<b>{E_USER} {B('User Subscription')}</b>\n────────——\n<b>Name</b>     ➳ {target_name}\n<b>Username</b> ➳ {uname_d}\n<b>ID</b>       ➳ <code>{target_id}</code>\n────────——\n<b>Plan</b>     ➳ {get_styled_plan(raw_plan)} {plan_emoji}\n{expire_line}\n────────——\n<b>Grant a Plan:</b>"
+        txt = f"<b>{E_USER} User Subscription</b>\n────────——\n<b>Name</b>     ➳ {target_name}\n<b>Username</b> ➳ {uname_d}\n<b>ID</b>       ➳ <code>{target_id}</code>\n────────——\n<b>Plan</b>     ➳ {get_styled_plan(raw_plan)} {plan_emoji}\n{expire_line}\n────────——\n<b>Grant a Plan:</b>"
         kb = RawMarkup([[_btn("⭐ CORE · 7d", cb=f"ogs_CORE_7_{target_id}", style="primary"), _btn("💎 ELITE · 15d", cb=f"ogs_ELITE_15_{target_id}", style="primary"), _btn("👑 ROOT · 30d", cb=f"ogs_ROOT_30_{target_id}", style="primary")], [_btn("⭐ CORE · 15d", cb=f"ogs_CORE_15_{target_id}", style="primary"), _btn("💎 ELITE · 30d", cb=f"ogs_ELITE_30_{target_id}", style="primary"), _btn("👑 ROOT · 60d", cb=f"ogs_ROOT_60_{target_id}", style="primary")], [_btn(f"{E_DECLINED} Remove Plan", cb=f"owner_resub_{target_id}", style="danger")]])
         await update.message.reply_text(txt, parse_mode="HTML", reply_markup=kb); return
     ud = get_user_data(user.id, context); raw_plan = ud.get("plan", "TRIAL").upper(); expires = ud.get("expires", 0)
@@ -633,8 +616,8 @@ async def cmd_sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     premium = raw_plan != "TRIAL" and expires > now; uname = f"@{user.username}" if user.username else user.first_name or "User"; plan_emoji = tg_emoji(get_plan_emoji_id(raw_plan), "⭐"); credits_d = "Unlimited" if premium else str(ud.get("credits", 150))
     if premium: rem = expires - now; rem_d = int(rem // 86400); rem_h = int((rem % 86400) // 3600); exp_str = datetime.fromtimestamp(expires).strftime("%Y-%m-%d %H:%M"); expire_line = f"<b>Expires</b>    ➳ {exp_str}\n<b>Remaining</b>  ➳ <b>{rem_d} days {rem_h} hours</b>"
     else: expire_line = "<b>Expires</b>    ➳ Trial (no expiry)"
-    txt = f"<b>{E_USER} {B('My Subscription')}</b>\n────────——\n<b>Name</b>      ➳ {escape(uname)}\n<b>ID</b>        ➳ <code>{user.id}</code>\n────────——\n<b>Plan</b>      ➳ {get_styled_plan(raw_plan)} {plan_emoji}\n<b>Credits</b>   ➳ {credits_d}\n{expire_line}\n────────——\n<b>Joined</b>    ➳ {ud.get('joined', 'N/A')}\n────────——"
-    kb = RawMarkup([[_btn("💎 " + B("Upgrade Plan"), cb="mprice", style="primary")]]) if not premium else None
+    txt = f"<b>{E_USER} My Subscription</b>\n────────——\n<b>Name</b>      ➳ {escape(uname)}\n<b>ID</b>        ➳ <code>{user.id}</code>\n────────——\n<b>Plan</b>      ➳ {get_styled_plan(raw_plan)} {plan_emoji}\n<b>Credits</b>   ➳ {credits_d}\n{expire_line}\n────────——\n<b>Joined</b>    ➳ {ud.get('joined', 'N/A')}\n────────——"
+    kb = RawMarkup([[_btn("💎 Upgrade Plan", cb="mprice", style="primary")]]) if not premium else None
     await update.message.reply_text(txt, parse_mode="HTML", reply_markup=kb)
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -642,7 +625,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.args:
         arg = context.args[0]
         if arg.startswith("ref_"): referrer_id = _verify_ref_token(arg[4:]); await process_referral(user.id, referrer_id, context) if referrer_id else None
-    if ud.get("banned", False) and user.id != OWNER_ID: await update.message.reply_text(f"<b>{E_ERRORS} {B('Banned')}</b>\n────────——\nYou have been banned from using this bot.\n────────——", parse_mode="HTML"); return
+    if ud.get("banned", False) and user.id != OWNER_ID: await update.message.reply_text(f"<b>{E_ERRORS} Banned</b>\n────────——\nYou have been banned from using this bot.\n────────——", parse_mode="HTML"); return
     if not await require_membership(update, context): return
     await update.message.reply_text(ui_start_screen(user, context), parse_mode="HTML", reply_markup=kb_main(user.id), disable_web_page_preview=True)
 
@@ -656,8 +639,8 @@ async def cmd_msh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud = get_user_data(user.id, context); premium = is_user_premium(ud); is_trial = not premium and user.id != OWNER_ID; today_str = datetime.now().strftime("%Y-%m-%d"); _update_user_meta(ud, user); plan = ud.get("plan", "TRIAL")
     if is_trial:
         last_date = ud.get("msh_daily_date", "")
-        if last_date == today_str: used_today = ud.get("msh_daily_cards", 0); await update.message.reply_text(f"<b>{E_ERRORS} {B('Daily Limit Reached')}</b>\n────────——\nYou already used <b>/msh</b> today.\n\n<b>Used Today:</b>  {used_today} / {TRIAL_MASS_DAY_LIMIT} cards\n<b>Resets:</b>      Tomorrow midnight\n────────——\n💡 Upgrade to <b>Premium</b> for unlimited daily mass checking.", parse_mode="HTML", reply_markup=kb_upgrade()); return
-        if ud.get("credits", 0) <= 0: await update.message.reply_text(f"<b>{E_PRO} {B('Credits Used Up!')}</b>\n────────——\nYou've used all your free credits.\n\n<b>💎 Upgrade to Premium</b> for:\n• Unlimited mass checking\n• No daily card caps\n• No credit limits ever\n────────——\nTap <b>Buy Now</b> below to get a plan.", parse_mode="HTML", reply_markup=kb_upgrade()); return
+        if last_date == today_str: used_today = ud.get("msh_daily_cards", 0); await update.message.reply_text(f"<b>{E_ERRORS} Daily Limit Reached</b>\n────────——\nYou already used <b>/msh</b> today.\n\n<b>Used Today:</b>  {used_today} / {TRIAL_MASS_DAY_LIMIT} cards\n<b>Resets:</b>      Tomorrow midnight\n────────——\n💡 Upgrade to <b>Premium</b> for unlimited daily mass checking.", parse_mode="HTML", reply_markup=kb_upgrade()); return
+        if ud.get("credits", 0) <= 0: await update.message.reply_text(f"<b>{E_PRO} Credits Used Up!</b>\n────────——\nYou've used all your free credits.\n\n<b>💎 Upgrade to Premium</b> for:\n• Unlimited mass checking\n• No daily card caps\n• No credit limits ever\n────────——\nTap <b>Buy Now</b> below to get a plan.", parse_mode="HTML", reply_markup=kb_upgrade()); return
     cards = []; doc = update.message.document or (update.message.reply_to_message.document if update.message.reply_to_message else None)
     if doc:
         if doc.mime_type not in ("text/plain", "application/octet-stream"): await update.message.reply_text("<b>❌ Please send a .txt file with cards (one per line).</b>", parse_mode="HTML"); return
@@ -675,7 +658,7 @@ async def cmd_msh(update: Update, context: ContextTypes.DEFAULT_TYPE):
         orig = len(cards); trial_credits = ud.get("credits", 0); eff_limit = min(TRIAL_MASS_DAY_LIMIT, trial_credits)
         if orig > eff_limit:
             cards = cards[:eff_limit]; reason = f"{TRIAL_MASS_DAY_LIMIT} cards/day limit" if eff_limit == TRIAL_MASS_DAY_LIMIT else f"{trial_credits} credits"
-            await update.message.reply_text(f"<b>{E_ERRORS} {B('Trial Limit Applied')}</b>\n────────——\nYou sent <b>{orig}</b> cards. Limit: <b>{reason}</b>.\nOnly <b>{eff_limit}</b> cards will be checked.\n────────——", parse_mode="HTML")
+            await update.message.reply_text(f"<b>{E_ERRORS} Trial Limit Applied</b>\n────────——\nYou sent <b>{orig}</b> cards. Limit: <b>{reason}</b>.\nOnly <b>{eff_limit}</b> cards will be checked.\n────────——", parse_mode="HTML")
     valid_cards = []
     for raw in cards:
         parts = raw.split("|")
@@ -702,13 +685,13 @@ async def cmd_1day(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except: pass
     plan_emoji = tg_emoji(get_plan_emoji_id("CORE"), "⭐"); keys_store = context.bot_data.setdefault("keys", {}); generated = []
     for _ in range(count): key = gen_code(12); keys_store[key] = {"plan": "CORE", "days": 1, "used": False}; generated.append(key)
-    if count == 1: await update.message.reply_text(f"<b>{E_LIVE} {B('1-Day Key Generated')}</b>\n────────——\n<b>Key</b>    ➳ <code>{generated[0]}</code>\n<b>Plan</b>   ➳ {B('Core')} {plan_emoji}\n<b>Days</b>   ➳ 1\n────────——\nRedeem: <code>/rm {generated[0]}</code>", parse_mode="HTML")
+    if count == 1: await update.message.reply_text(f"<b>{E_LIVE} 1-Day Key Generated</b>\n────────——\n<b>Key</b>    ➳ <code>{generated[0]}</code>\n<b>Plan</b>   ➳ Core {plan_emoji}\n<b>Days</b>   ➳ 1\n────────——\nRedeem: <code>/rm {generated[0]}</code>", parse_mode="HTML")
 
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_not_banned(update, context): return
     if not await require_membership(update, context): return
     t = time.time(); msg = await update.message.reply_text('<b>🔄 Pinging...</b>', parse_mode="HTML"); ms = int((time.time() - t) * 1000)
-    await msg.edit_text(f'<b>✅ {B("Pong")}</b>\n────────——\n<b>⏱ ➳ {ms}ms</b>\n────────——', parse_mode="HTML")
+    await msg.edit_text(f'<b>✅ Pong</b>\n────────——\n<b>⏱ ➳ {ms}ms</b>\n────────——', parse_mode="HTML")
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_not_banned(update, context): return
@@ -725,18 +708,18 @@ async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_not_banned(update, context): return
     if not await require_membership(update, context): return
     core_e = tg_emoji(PLAN_EMOJIS["CORE"], "⭐"); elite_e = tg_emoji(PLAN_EMOJIS["ELITE"], "⭐"); root_e = tg_emoji(PLAN_EMOJIS["ROOT"], "⭐")
-    txt = f"<b>{core_e} {B('Core')} Plan</b>\n────────——\n<b>Days</b>     ➳ 1\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 1.5$\n────────——\n<b>{core_e} {B('Core')} Plan</b>\n────────——\n<b>Days</b>     ➳ 7\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 8$\n────────——\n<b>{elite_e} {B('Elite')} Plan</b>\n────────——\n<b>Days</b>     ➳ 15\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 12$\n────────——\n<b>{root_e} {B('Root')} Plan</b>\n────────——\n<b>Days</b>     ➳ 30\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 25$\n────────——"
+    txt = f"<b>{core_e} Core Plan</b>\n────────——\n<b>Days</b>     ➳ 1\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 1.5$\n────────——\n<b>{core_e} Core Plan</b>\n────────——\n<b>Days</b>     ➳ 7\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 8$\n────────——\n<b>{elite_e} Elite Plan</b>\n────────——\n<b>Days</b>     ➳ 15\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 12$\n────────——\n<b>{root_e} Root Plan</b>\n────────——\n<b>Days</b>     ➳ 30\n<b>Credits</b>  ➳ Unlimited\n<b>Price</b>    ➳ 25$\n────────——"
     await update.message.reply_text(txt, reply_markup=kb_price(), parse_mode="HTML")
 
 async def cmd_rm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_not_banned(update, context): return
     if not await require_membership(update, context): return
-    if not context.args: await update.message.reply_text(f"<b>{E_CARD} {B('Redeem Code / Key')}</b>\n────────——\n<b>Usage:</b> <code>/rm CODE</code>\n\nRedeem a <b>credit code</b> to top up your balance,\nor a <b>premium key</b> to activate a plan.\n────────——", parse_mode="HTML"); return
+    if not context.args: await update.message.reply_text(f"<b>{E_CARD} Redeem Code / Key</b>\n────────——\n<b>Usage:</b> <code>/rm CODE</code>\n\nRedeem a <b>credit code</b> to top up your balance,\nor a <b>premium key</b> to activate a plan.\n────────——", parse_mode="HTML"); return
     code = context.args[0].upper().strip(); uid = update.effective_user.id; ud = get_user_data(uid, context); codes = context.bot_data.get("codes", {}); keys = context.bot_data.get("keys", {})
     if code in codes:
         if codes[code]["used"]: await update.message.reply_text(f"<b>{E_ERRORS} Code Already Used</b>\n────────——\nThis code has already been redeemed.\n────────——", parse_mode="HTML"); return
         value = codes[code]["value"]; codes[code]["used"] = True; ud["credits"] = ud.get("credits", 0) + value; ud["codes_redeemed"] = ud.get("codes_redeemed", 0) + 1
-        await update.message.reply_text(f"<b>{E_LIVE} {B('Code Redeemed')}</b>\n────────——\n<b>Code</b>           ➳ <code>{code}</code>\n<b>Credits Added</b>  ➳ +{value}\n<b>New Balance</b>    ➳ {ud['credits']}\n────────——", parse_mode="HTML"); return
+        await update.message.reply_text(f"<b>{E_LIVE} Code Redeemed</b>\n────────——\n<b>Code</b>           ➳ <code>{code}</code>\n<b>Credits Added</b>  ➳ +{value}\n<b>New Balance</b>    ➳ {ud['credits']}\n────────——", parse_mode="HTML"); return
     if code in keys:
         if keys[code]["used"]: await update.message.reply_text(f"<b>{E_ERRORS} Key Already Used</b>\n────────——\nThis key has already been redeemed.\n────────——", parse_mode="HTML"); return
         keys[code]["used"] = True; p = keys[code]["plan"]; ud["keys_redeemed"] = ud.get("keys_redeemed", 0) + 1; plan_emoji = tg_emoji(get_plan_emoji_id(p), "⭐")
@@ -745,10 +728,10 @@ async def cmd_rm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if ud.get("plan", "TRIAL").upper() == "TRIAL": ud["pre_premium_credits"] = ud.get("credits", 150)
             ud["plan"] = p.upper(); ud["expires"] = expires_ts; receipt = gen_receipt(); ud["last_receipt"] = receipt; await _save_premium(context.bot_data)
             exp_str = datetime.fromtimestamp(expires_ts).strftime("%Y-%m-%d %H:%M")
-            await update.message.reply_text(f"<b>{E_LIVE} {B('Hour Key Redeemed!')}</b>\n────────——\n<b>Key</b>      ➳ <code>{code}</code>\n<b>Access</b>   ➳ {get_styled_plan(p)} {plan_emoji}\n<b>Duration</b> ➳ {hours} hours\n<b>Expires</b>  ➳ <code>{exp_str}</code>\n<b>Receipt</b>  ➳ <code>{receipt}</code>\n────────——\nYour plan is active! Use /sub to check.", parse_mode="HTML"); return
+            await update.message.reply_text(f"<b>{E_LIVE} Hour Key Redeemed!</b>\n────────——\n<b>Key</b>      ➳ <code>{code}</code>\n<b>Access</b>   ➳ {get_styled_plan(p)} {plan_emoji}\n<b>Duration</b> ➳ {hours} hours\n<b>Expires</b>  ➳ <code>{exp_str}</code>\n<b>Receipt</b>  ➳ <code>{receipt}</code>\n────────——\nYour plan is active! Use /sub to check.", parse_mode="HTML"); return
         d = keys[code]["days"]; receipt = await send_activation_msg(uid, p, d, context)
-        await update.message.reply_text(f"<b>{E_LIVE} {B('Key Redeemed')}</b>\n────────——\n<b>Key</b>     ➳ <code>{code}</code>\n<b>Access</b>  ➳ {get_styled_plan(p)} {plan_emoji}\n<b>Days</b>    ➳ {d}\n<b>Receipt</b> ➳ <code>{receipt}</code>\n────────——\nYour plan is now active! Use /sub to check.", parse_mode="HTML"); return
-    await update.message.reply_text(f"<b>{E_ERRORS} {B('Invalid Code')}</b>\n────────——\nThis code or key is invalid.\nMake sure you typed it correctly (case-insensitive).\n────────——", parse_mode="HTML")
+        await update.message.reply_text(f"<b>{E_LIVE} Key Redeemed</b>\n────────——\n<b>Key</b>     ➳ <code>{code}</code>\n<b>Access</b>  ➳ {get_styled_plan(p)} {plan_emoji}\n<b>Days</b>    ➳ {d}\n<b>Receipt</b> ➳ <code>{receipt}</code>\n────────——\nYour plan is now active! Use /sub to check.", parse_mode="HTML"); return
+    await update.message.reply_text(f"<b>{E_ERRORS} Invalid Code</b>\n────────——\nThis code or key is invalid.\nMake sure you typed it correctly (case-insensitive).\n────────——", parse_mode="HTML")
 
 async def _cmd_sh_gated(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_not_banned(update, context): return
@@ -842,11 +825,11 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try: await query.answer()
         except: pass
     if data == "bmain": await query.message.edit_text(ui_start_screen(user, context), parse_mode="HTML", reply_markup=kb_main(user.id), disable_web_page_preview=True); return
-    if data == "mprofile": await query.message.edit_text(ui_full_profile(user, context), parse_mode="HTML", reply_markup=kb_back("bmain"), disable_web_page_preview=True); return
-    if data == "mgates": await query.message.edit_text(f"<b>{E_GATE} {B('Gates')}</b>\n────────——\nChoose a gate category:", parse_mode="HTML", reply_markup=kb_gate_main()); return
+    if data == "mprofile": await query.message.edit_text(ui_profile(user, context), parse_mode="HTML", reply_markup=kb_back("bmain"), disable_web_page_preview=True); return
+    if data == "mgates": await query.message.edit_text(f"<b>{E_GATE} Gates</b>\n────────——\nChoose a gate category:", parse_mode="HTML", reply_markup=kb_gate_main()); return
     if data == "mprice":
         core_e = tg_emoji(PLAN_EMOJIS["CORE"], "⭐"); elite_e = tg_emoji(PLAN_EMOJIS["ELITE"], "⭐"); root_e = tg_emoji(PLAN_EMOJIS["ROOT"], "⭐")
-        txt = f"<b>{core_e} {B('Core')}</b>  ➳ 1 day  | 1.5$\n<b>{core_e} {B('Core')}</b>  ➳ 7 days | 8$\n<b>{elite_e} {B('Elite')}</b> ➳ 15 days | 12$\n<b>{root_e} {B('Root')}</b>   ➳ 30 days | 25$\n────────——\nAll plans: Unlimited credits"
+        txt = f"<b>{core_e} Core</b>  ➳ 1 day  | 1.5$\n<b>{core_e} Core</b>  ➳ 7 days | 8$\n<b>{elite_e} Elite</b> ➳ 15 days | 12$\n<b>{root_e} Root</b>   ➳ 30 days | 25$\n────────——\nAll plans: Unlimited credits"
         await query.message.edit_text(txt, parse_mode="HTML", reply_markup=kb_price()); return
     if data == "imsh":
         ud_i = get_user_data(user.id, context); prem_i = is_user_premium(ud_i); _today = datetime.now().strftime("%Y-%m-%d")
@@ -881,7 +864,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pay_map = {"pay1d": ("Core", 1.5, 1, "CORE"), "pay10": ("Core", 8, 7, "CORE"), "pay15": ("Elite", 12, 15, "ELITE"), "pay30": ("Root", 25, 30, "ROOT")}
     if data in pay_map:
         plan_n, price, days, plan_key = pay_map[data]; plan_emoji = tg_emoji(get_plan_emoji_id(plan_key), "⭐")
-        await query.message.edit_text(f"<b>{plan_emoji} {B(plan_n)} Plan</b>\n────────——\n<b>Price</b>   ➳ ${price}\n<b>Days</b>    ➳ {days}\n<b>Credits</b> ➳ Unlimited\n────────——\nContact support to purchase:", parse_mode="HTML", reply_markup=kb_payment()); return
+        await query.message.edit_text(f"<b>{plan_emoji} {plan_n} Plan</b>\n────────——\n<b>Price</b>   ➳ ${price}\n<b>Days</b>    ➳ {days}\n<b>Credits</b> ➳ Unlimited\n────────——\nContact support to purchase:", parse_mode="HTML", reply_markup=kb_payment()); return
     if user.id == OWNER_ID:
         if data.startswith("ogs_"):
             parts = data.split("_"); plan_key = parts[1]; days = int(parts[2]); uid = int(parts[3]); ud_t = get_user_data(uid, context); ud_t["plan"] = plan_key; ud_t["expires"] = time.time() + days * 86400; plan_emoji = tg_emoji(get_plan_emoji_id(plan_key), "⭐"); target_name = ud_t.get("name", f"User {uid}"); exp_str = datetime.fromtimestamp(ud_t["expires"]).strftime("%Y-%m-%d %H:%M")
@@ -889,7 +872,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try: await send_activation_msg(uid, plan_key, days, context)
             except: pass
             await query.answer(f"✅ {plan_key} {days}d granted!", show_alert=True)
-            try: await query.message.edit_text(f"<b>{E_LIVE} {B('Plan Granted')}</b>\n────────——\n<b>User</b>    ➳ {target_name} (<code>{uid}</code>)\n<b>Plan</b>    ➳ {get_styled_plan(plan_key)} {plan_emoji}\n<b>Days</b>    ➳ {days}\n<b>Expires</b> ➳ {exp_str}\n────────——", parse_mode="HTML")
+            try: await query.message.edit_text(f"<b>{E_LIVE} Plan Granted</b>\n────────——\n<b>User</b>    ➳ {target_name} (<code>{uid}</code>)\n<b>Plan</b>    ➳ {get_styled_plan(plan_key)} {plan_emoji}\n<b>Days</b>    ➳ {days}\n<b>Expires</b> ➳ {exp_str}\n────────——", parse_mode="HTML")
             except: pass
             return
         if data.startswith("owner_ban_"): uid = int(data.split("_")[-1]); get_user_data(uid, context)["banned"] = True; await query.answer(f"Banned {uid}", show_alert=True); return
